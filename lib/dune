@@ -1,0 +1,10 @@
+(library
+ (name growl_core)
+ (libraries containers fmt preface unionFind hashcons menhirLib)
+ (preprocess (pps ppx_deriving.eq ppx_deriving.show)))
+
+(menhir
+ (modules Parser)
+ (flags --table))
+
+(ocamllex Lexer)

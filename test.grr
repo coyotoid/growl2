@@ -1,0 +1,5 @@
+def ifte { choose call }
+
+def factorial {
+  dup 2 < [drop 1] [dup 1 - factorial *] ifte
+}
