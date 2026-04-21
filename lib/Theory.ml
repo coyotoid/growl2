@@ -63,10 +63,14 @@ let load_prelude db =
   store "-" t_math_binop;
   store "*" t_math_binop;
   store "/" t_math_binop;
+  store "=" t_math_cmp;
+  store "!=" t_math_cmp;
+  store "<" t_math_cmp;
+  store ">" t_math_cmp;
+  store "<=" t_math_cmp;
+  store ">=" t_math_cmp;
   store "and" t_bool_binop;
   store "not" t_bool_unop;
-  store "=" t_math_cmp;
-  store "<" t_math_cmp;
   store "choose" t_choose;
   store "call" t_call;
   store "dip" t_dip;

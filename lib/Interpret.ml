@@ -25,6 +25,18 @@ let binop_cmp stack op =
   | _ :: _ :: rest -> failwith "type mismatch"
   | _ -> failwith "stack underflow"
 
+let binop_bool stack op =
+  match stack with
+  | VBool b :: VBool a :: rest -> VBool (op a b) :: rest
+  | _ :: _ :: rest -> failwith "type mismatch"
+  | _ -> failwith "stack underflow"
+
+let unop_bool stack op =
+  match stack with
+  | VBool a :: rest -> VBool (op a) :: rest
+  | _ :: _ :: rest -> failwith "type mismatch"
+  | _ -> failwith "stack underflow"
+
 (* term execution *)
 let rec exec_term wenv lenv stack (term : Ast.term) =
   match term.value with
@@ -62,6 +74,8 @@ and exec_word wenv lenv stack = function
   | ">" -> binop_cmp stack Int.( > )
   | "<=" -> binop_cmp stack Int.( < )
   | ">=" -> binop_cmp stack Int.( > )
+  | "and" -> binop_bool stack Bool.( && )
+  | "not" -> unop_bool stack Bool.(not)
   | "choose" -> (
       match stack with
       | q_f :: q_t :: VBool cond :: rest -> (if cond then q_t else q_f) :: rest

@@ -1,13 +1,18 @@
 open Containers
 module String_map = Map.Make (String)
 
-type ctx = { env : Simple_type.ty String_map.t; ask : 'a. 'a Query.t -> 'a }
+type ctx = {
+  env : Simple_type.ty String_map.t;
+  ask : 'a. 'a Query.t -> 'a;
+  placeholders : Simple_type.ty String_map.t;
+}
 
 module type S = sig
   val next_id : unit -> int
   val fresh_ty_var : level:int -> unit -> Simple_type.ty
   val fresh_stack_var : level:int -> unit -> Simple_type.stack
   val infer : ctx -> int -> Ast.term -> Simple_type.ty Diagnosed.t
+  val constrain_ty : Simple_type.ty -> Simple_type.ty -> bool Diagnosed.t
 end
 
 module Make () : S = struct
@@ -159,11 +164,14 @@ module Make () : S = struct
         | Some ty ->
             let rho = fresh_stack_var ~level () in
             return (TFunc (rho, SCons (ty, rho)))
-        | None ->
-            let* t =
-              adorn ~span:(Some term.span) (ctx.ask (Query.WordType w))
-            in
-            return (freshen level t))
+        | None -> (
+            match String_map.find_opt w ctx.placeholders with
+            | Some ph -> return ph
+            | None ->
+                let* t =
+                  adorn ~span:(Some term.span) (ctx.ask (Query.WordType w))
+                in
+                return (freshen level t)))
     | Cat (f, g) -> (
         let* tf = infer ctx level f in
         let* tg = infer ctx level g in

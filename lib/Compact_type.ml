@@ -69,6 +69,11 @@ let compact (root : Simple_type.ty) : scheme =
             Hashtbl.replace rec_ty key ();
             { empty_ty with vars = Int_set.singleton v.id }
           end
+        else if Polar_set.mem (v.id, not pol) in_process then begin
+          Hashtbl.replace rec_ty (v.id, pol) ();
+          Hashtbl.replace rec_ty (v.id, not pol) ();
+          { empty_ty with vars = Int_set.singleton v.id }
+        end
         else
           let in_process' = Polar_set.add key in_process in
           let bounds = if pol then v.lower else v.upper in
@@ -100,6 +105,11 @@ let compact (root : Simple_type.ty) : scheme =
             Hashtbl.replace rec_st key ();
             { empty_stack with svars = Int_set.singleton v.id }
           end
+        else if Polar_set.mem (v.id, not pol) in_process then begin
+          Hashtbl.replace rec_st (v.id, pol) ();
+          Hashtbl.replace rec_st (v.id, not pol) ();
+          { empty_stack with svars = Int_set.singleton v.id }
+        end
         else
           let in_process' = Polar_set.add key in_process in
           let bounds = if pol then v.lower else v.upper in
@@ -241,7 +251,8 @@ let simplify (scm : scheme) : scheme =
   in
 
   let try_merge_ty_var pol v w =
-    if not (Hashtbl.mem ty_subst w) then
+    if w = v then ()
+    else if not (Hashtbl.mem ty_subst w) then
       match Hashtbl.find_opt co_occ_ty (w, pol) with
       | None -> ()
       | Some (w_co_vars, _) ->
@@ -269,7 +280,8 @@ let simplify (scm : scheme) : scheme =
   in
 
   let try_merge_st_var pol v w =
-    if not (Hashtbl.mem st_subst w) then
+    if w = v then ()
+    else if not (Hashtbl.mem st_subst w) then
       match Hashtbl.find_opt co_occ_st (w, pol) with
       | None -> ()
       | Some w_co_svars ->
