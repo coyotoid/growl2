@@ -37,3 +37,6 @@ and pp_stack : stack Fmt.t =
   | SRec { name; body } -> Fmt.pf ppf "𝜇%s. %a" name pp_stack body
   | SVar v -> Fmt.(any ".." ++ string) ppf v
   | SCons (t, s) -> Fmt.pair ~sep:Fmt.comma pp_stack pp_ty ppf (s, t)
+
+let show_ty = Fmt.to_to_string pp_ty
+let show_stack = Fmt.to_to_string pp_stack

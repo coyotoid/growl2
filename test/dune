@@ -1,0 +1,9 @@
+(library
+ (name growl_alcotest)
+ (modules Growl_alcotest)
+ (libraries growl_core alcotest fmt))
+
+(test
+ (name E2e_test)
+ (modules E2e_test)
+ (libraries growl_core growl_alcotest alcotest))
