@@ -20,6 +20,11 @@ module Make () : S = struct
   let fresh_ty_var ~level () = Simple_type.TVar (fresh_var ~level ())
   let fresh_stack_var ~level () = Simple_type.SVar (fresh_var ~level ())
 
+  let coalesce t =
+    let module C = Coalescing.Make () in
+    t |> Compact_type.compact |> Compact_type.simplify |> C.coalesce
+    |> Type.simplify_ty
+
   let rec constrain_ty lhs rhs : bool Diagnosed.t =
     let open Diagnosed in
     let open Simple_type in
@@ -62,7 +67,16 @@ module Make () : S = struct
         let* r2 = constrain_stack s2 s4 in
         return (r1 && r2)
     | _ ->
-        let+ () = throw `Error Text.[ Text "type mismatch" ] in
+        let+ () =
+          throw `Error
+            Text.
+              [
+                Text "type mismatch between ";
+                Any (coalesce lhs, Type_pp.pp_ty);
+                Text " and ";
+                Any (coalesce rhs, Type_pp.pp_ty);
+              ]
+        in
         false
 
   and constrain_stack lhs rhs : bool Diagnosed.t =
@@ -155,10 +169,10 @@ module Make () : S = struct
         let* tg = infer ctx level g in
         match (tf, tg) with
         | TFunc (s_in, s_mid), TFunc (s_mid', s_out) ->
-            let* _ =
+            let* res =
               adorn ~span:(Some term.span) (constrain_stack s_mid s_mid')
             in
-            return (TFunc (s_in, s_out))
+            return @@ if res then TFunc (s_in, s_out) else TFunc (SError, SError)
         | _ -> assert false)
     | Quote f ->
         let* tf = infer ctx level f in

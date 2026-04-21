@@ -5,10 +5,8 @@ let color_of_severity : Diagnostic.severity -> Fmt.style = function
   | `Warning -> `Yellow
   | `Note -> `Cyan
 
-let with_reporting value =
-  let value, diagnostics =
-    Diagnosed.run value |> Preface.Identity.extract
-  in
+let with_reporting diagnosed =
+  let value, diagnostics = Diagnosed.run diagnosed in
   List.iter
     (fun diag ->
       match diag.Diagnostic.span with
@@ -32,4 +30,4 @@ let with_reporting value =
             (Diagnostic.string_of_severity diag.Diagnostic.severity)
             Text.pp diag.text)
     diagnostics;
-  value
+  diagnosed

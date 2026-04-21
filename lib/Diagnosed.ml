@@ -17,3 +17,6 @@ let adorn ~span m =
     match d.span with None -> { d with span } | Some _ -> d
   in
   censor (List.map fill) m
+
+let run : 'a t -> 'a * tape = fun m -> run m |> Preface.Identity.extract
+let exec : 'a t -> tape = fun m -> exec m |> Preface.Identity.extract

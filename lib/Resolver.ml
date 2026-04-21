@@ -31,9 +31,7 @@ and compute : type a. Db.t -> a Query.t -> a =
             let res = ask db (Query.ParsedProgram file_id) in
             if Diagnosed.has `Error res then None
             else
-              let prog =
-                Diagnosed.run res |> Preface.Identity.extract |> Pair.fst
-              in
+              let prog = Diagnosed.run res |> Pair.fst in
               List.find_map
                 (fun (def : Ast.def Span.Spanned.t) ->
                   if String.equal def.value.name.value name then
@@ -43,13 +41,8 @@ and compute : type a. Db.t -> a Query.t -> a =
           files
       in
       match found with
-      | Some d -> d
-      | None ->
-          Diagnosed.(
-            let+ () =
-              throw `Error Text.[ Text "unbound word: "; Verbatim name ]
-            in
-            Span.Spanned.{ value = Ast.Id; span = Span.dummy }))
+      | Some d -> Diagnosed.map Option.some d
+      | None -> Diagnosed.return None)
   | Query.WordType name -> (
       match Hashtbl.find_opt db.types_in_progress name with
       | Some (placeholder, is_rec) ->
@@ -69,7 +62,13 @@ and compute : type a. Db.t -> a Query.t -> a =
           let result =
             let open Diagnosed in
             let* expr = ask db (Query.WordExpr name) in
-            I.infer ctx 0 expr
+            match expr with
+            | Some expr -> I.infer ctx 0 expr
+            | None ->
+                let+ () =
+                  throw `Error Text.[ Text "unbound word: "; Verbatim name ]
+                in
+                Simple_type.(TFunc (SError, SError))
           in
           Hashtbl.remove db.types_in_progress name;
           result)

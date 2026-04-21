@@ -6,7 +6,7 @@ type _ t =
   | Manifest : unit -> file_id list t
   | SourceText : file_id -> string t
   | ParsedProgram : file_id -> Ast.program Diagnosed.t t
-  | WordExpr : string -> Ast.term Diagnosed.t t
+  | WordExpr : string -> Ast.term option Diagnosed.t t
   | WordType : string -> Simple_type.ty Diagnosed.t t
 
 type ('a, 'b) eq = Refl : ('a, 'a) eq

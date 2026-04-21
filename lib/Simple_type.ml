@@ -18,3 +18,16 @@ module Infix = struct
   let ( &> ) s t = SCons (t, s)
   let ( => ) a b = TFunc (a, b)
 end
+
+let is_error =
+  let rec go_ty = function
+    | TError -> true
+    | TVar _ -> false
+    | TPrim _ -> false
+    | TFunc (a, b) -> go_stack a || go_stack b
+  and go_stack = function
+    | SError -> true
+    | SVar _ -> false
+    | SCons (t, s) -> go_ty t || go_stack s
+  in
+  go_ty
