@@ -123,6 +123,10 @@ let rec simplify_ty (t : ty) : ty =
       | TTop, _ -> b
       | _, TTop -> a
       | _ when a.tag = b.tag -> a
+      | TPrim p, TPrim q -> (
+          match Type_primitive.meet p q with
+          | Some r -> tprim r
+          | None -> tinter a b)
       | _ -> tinter a b)
   | TUnion (a, b) -> (
       let a = simplify_ty a and b = simplify_ty b in
@@ -130,6 +134,10 @@ let rec simplify_ty (t : ty) : ty =
       | TBot, _ -> b
       | _, TBot -> a
       | _ when a.tag = b.tag -> a
+      | TPrim p, TPrim q -> (
+          match Type_primitive.join p q with
+          | Some r -> tprim r
+          | None -> tunion a b)
       | _ -> tunion a b)
   | TFunc (a, b) -> tfunc (simplify_stack a) (simplify_stack b)
   | TRec { name; body } -> trec name (simplify_ty body)

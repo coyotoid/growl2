@@ -1,7 +1,6 @@
 open Containers
 open Growl_core
 module String_map = Map.Make (String)
-module C = Coalescing.Make ()
 
 let () =
   let db = Db.create () in
@@ -16,9 +15,12 @@ let () =
   let defs = Reporting.with_reporting defs_m in
   List.iter
     (fun (d : Ast.def Span.Spanned.t) ->
+      let module C = Coalescing.Make () in
       let name = d.value.name.value in
       let ty_m = Resolver.ask db (Query.WordType name) in
       let ty = Reporting.with_reporting ty_m in
       if not (Diagnosed.has `Error ty_m) then
-        Fmt.epr "The type of %s is %a@." name Type_pp.pp_ty (C.coalesce ty |> Type.simplify_ty))
+        Fmt.epr "The type of %s is %a@." name Type_pp.pp_ty
+          (Compact_type.(compact ty |> simplify)
+          |> C.coalesce |> Type.simplify_ty))
     defs

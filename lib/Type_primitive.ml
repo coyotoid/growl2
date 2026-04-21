@@ -1,4 +1,4 @@
-type t = [ `Int | `Nat | `Bool ] [@@deriving eq, show]
+type t = [ `Int | `Nat | `Bool ] [@@deriving eq, ord, show]
 
 let leq : t -> t -> bool =
  fun p1 p2 ->

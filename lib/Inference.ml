@@ -146,10 +146,9 @@ module Make () : S = struct
             let rho = fresh_stack_var ~level () in
             return (TFunc (rho, SCons (ty, rho)))
         | None ->
-            let t_monad =
+            let* t =
               adorn ~span:(Some term.span) (ctx.ask (Query.WordType w))
             in
-            let* t = t_monad in
             return (freshen level t))
     | Cat (f, g) -> (
         let* tf = infer ctx level f in
@@ -160,10 +159,7 @@ module Make () : S = struct
               adorn ~span:(Some term.span) (constrain_stack s_mid s_mid')
             in
             return (TFunc (s_in, s_out))
-        | _ ->
-            failwith
-              (Fmt.str "what? tf = %a; tg = %a" Simple_type.pp_ty tf
-                 Simple_type.pp_ty tg))
+        | _ -> assert false)
     | Quote f ->
         let* tf = infer ctx level f in
         let rho = fresh_stack_var ~level () in

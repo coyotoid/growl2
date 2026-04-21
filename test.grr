@@ -3,3 +3,11 @@ def ifte { choose call }
 def factorial {
   dup 2 < [drop 1] [dup 1 - factorial *] ifte
 }
+
+def even {
+  dup 0 = [drop true] [1 - odd] ifte
+}
+
+def odd {
+  dup 0 = [drop false] [1 - even] ifte
+}

@@ -1,4 +1,4 @@
 (executable
  (public_name growl)
  (name growl)
- (libraries growl_core))
+ (libraries growl_core cmdliner))
