@@ -86,11 +86,7 @@ let check_cmd =
            (fun (name, ty) ->
              Fmt.pr "%a@." Text.pp
                Text.
-                 [
-                   Text name;
-                   Text " :: ";
-                   Any (coalesce_ty ty, Type_pp.pp_ty);
-                 ])
+                 [ Text name; Text " :: "; Any (coalesce_ty ty, Type_pp.pp_ty) ])
            types
   in
   let run file =

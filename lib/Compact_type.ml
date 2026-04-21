@@ -6,6 +6,7 @@ type ty = {
   vars : Int_set.t;
   prims : Prim_set.t;
   func : (stack * stack) option;
+  con : (string * ty list) option;
 }
 
 and stack = { svars : Int_set.t; cons : (ty * stack) option }
@@ -16,7 +17,9 @@ type scheme = {
   rec_st_vars : stack Int_map.t;
 }
 
-let empty_ty = { vars = Int_set.empty; prims = Prim_set.empty; func = None }
+let empty_ty =
+  { vars = Int_set.empty; prims = Prim_set.empty; func = None; con = None }
+
 let empty_stack = { svars = Int_set.empty; cons = None }
 
 let rec merge_ty pol a b =
@@ -26,10 +29,18 @@ let rec merge_ty pol a b =
     | Some (al, ar), Some (bl, br) ->
         Some (merge_stack (not pol) al bl, merge_stack pol ar br)
   in
+  let con =
+    match (a.con, b.con) with
+    | None, x | x, None -> x
+    | Some (c1, args1), Some (c2, args2) when String.equal c1 c2 ->
+        Some (c1, List.map2 (merge_ty pol) args1 args2)
+    | Some _, Some _ -> None
+  in
   {
     vars = Int_set.union a.vars b.vars;
     prims = Prim_set.union a.prims b.prims;
     func;
+    con;
   }
 
 and merge_stack pol a b =
@@ -61,6 +72,11 @@ let compact (root : Simple_type.ty) : scheme =
         let l = go_stack lhs (not pol) Int_set.empty in_process in
         let r = go_stack rhs pol Int_set.empty in_process in
         { empty_ty with func = Some (l, r) }
+    | Simple_type.TCon (name, args) ->
+        let args' =
+          List.map (fun a -> go_ty a pol Int_set.empty in_process) args
+        in
+        { empty_ty with con = Some (name, args') }
     | Simple_type.TVar v ->
         let key = (v.id, pol) in
         if Polar_set.mem key in_process then
@@ -184,7 +200,10 @@ let simplify (scm : scheme) : scheme =
       (fun (l, r) ->
         go_stack l (not pol);
         go_stack r pol)
-      t.func
+      t.func;
+    Option.iter
+      (fun (_name, args) -> List.iter (fun a -> go_ty a pol) args)
+      t.con
   and go_stack (s : stack) pol =
     Int_set.iter
       (fun v ->
@@ -371,7 +390,10 @@ let simplify (scm : scheme) : scheme =
     let func =
       Option.map (fun (l, r) -> (rebuild_stack l, rebuild_stack r)) t.func
     in
-    { t with vars; func }
+    let con =
+      Option.map (fun (name, args) -> (name, List.map rebuild_ty args)) t.con
+    in
+    { t with vars; func; con }
   and rebuild_stack (s : stack) : stack =
     let svars = filter_map_int_set resolve_st s.svars in
     let cons =

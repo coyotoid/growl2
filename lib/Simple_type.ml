@@ -9,6 +9,7 @@ type ty =
   | TError
   | TVar of ty var
   | TPrim of Type_primitive.t
+  | TCon of string * ty list
   | TFunc of stack * stack
 
 and stack = SError | SVar of stack var | SCons of ty * stack
@@ -23,6 +24,7 @@ let is_error =
     | TError -> true
     | TVar _ -> false
     | TPrim _ -> false
+    | TCon (_, ts) -> List.exists go_ty ts
     | TFunc (a, b) -> go_stack a || go_stack b
   and go_stack = function
     | SError -> true

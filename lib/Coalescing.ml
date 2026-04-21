@@ -41,6 +41,7 @@ module Make () = struct
               contains_var name lhs || contains_var name rhs
           | TFunc (lhs, rhs) ->
               contains_stack_var name lhs || contains_stack_var name rhs
+          | TCon (_name, args) -> List.exists (contains_var name) args
           | TRec { body; _ } -> contains_var name body
           | TTop | TBot | TPrim _ -> false
         in
@@ -82,7 +83,7 @@ module Make () = struct
         Hashtbl.add st_names id fresh;
         fresh
 
-  let assign_names (sch : Compact_type.scheme) =
+  let assign_names (scm : Compact_type.scheme) =
     let ty_seen : (int, unit) Hashtbl.t = Hashtbl.create 8 in
     let st_seen : (int, unit) Hashtbl.t = Hashtbl.create 8 in
     let rec scan_ty (t : Compact_type.ty) =
@@ -92,7 +93,7 @@ module Make () = struct
           if not (Hashtbl.mem ty_seen v) then begin
             Hashtbl.add ty_seen v ();
             Option.iter scan_ty
-              (Compact_type.Int_map.find_opt v sch.rec_ty_vars)
+              (Compact_type.Int_map.find_opt v scm.rec_ty_vars)
           end)
         t.vars;
       Option.iter
@@ -112,13 +113,13 @@ module Make () = struct
           if not (Hashtbl.mem st_seen v) then begin
             Hashtbl.add st_seen v ();
             Option.iter scan_stack
-              (Compact_type.Int_map.find_opt v sch.rec_st_vars)
+              (Compact_type.Int_map.find_opt v scm.rec_st_vars)
           end)
         s.svars
     in
-    scan_ty sch.cty
+    scan_ty scm.cty
 
-  let collect_polarities (sch : Compact_type.scheme) =
+  let collect_polarities (scm : Compact_type.scheme) =
     let ty_pols : (int, variable) Hashtbl.t = Hashtbl.create 16 in
     let st_pols : (int, variable) Hashtbl.t = Hashtbl.create 16 in
     let seen_ty : (int * bool, unit) Hashtbl.t = Hashtbl.create 8 in
@@ -141,7 +142,7 @@ module Make () = struct
             Hashtbl.add seen_ty key ();
             Option.iter
               (fun b -> scan_ty b pol)
-              (Compact_type.Int_map.find_opt v sch.rec_ty_vars)
+              (Compact_type.Int_map.find_opt v scm.rec_ty_vars)
           end)
         t.vars;
       Option.iter
@@ -159,7 +160,7 @@ module Make () = struct
             Hashtbl.add seen_st key ();
             Option.iter
               (fun b -> scan_stack b pol)
-              (Compact_type.Int_map.find_opt v sch.rec_st_vars)
+              (Compact_type.Int_map.find_opt v scm.rec_st_vars)
           end)
         s.svars;
       Option.iter
@@ -168,12 +169,12 @@ module Make () = struct
           scan_stack s' pol)
         s.cons
     in
-    scan_ty sch.cty Pos;
+    scan_ty scm.cty Pos;
     (ty_pols, st_pols)
 
-  let coalesce (sch : Compact_type.scheme) : Type.ty =
-    assign_names sch;
-    let ty_pols, st_pols = collect_polarities sch in
+  let coalesce (scm : Compact_type.scheme) : Type.ty =
+    assign_names scm;
+    let ty_pols, st_pols = collect_polarities scm in
     let is_ty_both v =
       match Hashtbl.find_opt ty_pols v with
       | Some p -> p.pos && p.neg
@@ -200,7 +201,7 @@ module Make () = struct
             let ty_v =
               if Int_set.mem v seen_ty then Type.tvar n
               else
-                match Compact_type.Int_map.find_opt v sch.rec_ty_vars with
+                match Compact_type.Int_map.find_opt v scm.rec_ty_vars with
                 | None -> Type.tvar n
                 | Some bound ->
                     let seen_ty' = Int_set.add v seen_ty in
@@ -220,6 +221,14 @@ module Make () = struct
               (go_stack r pol seen_ty seen_st)
             :: parts
       in
+      let parts =
+        match t.con with
+        | None -> parts
+        | Some (name, args) ->
+            Type.tcon name
+              (List.map (fun a -> go_ty a pol seen_ty seen_st) args)
+            :: parts
+      in
       List.fold_left combine default parts
     and go_stack (s : Compact_type.stack) pol seen_ty seen_st =
       let combine, default =
@@ -234,7 +243,7 @@ module Make () = struct
             let st_v =
               if Int_set.mem v seen_st then Type.svar n
               else
-                match Compact_type.Int_map.find_opt v sch.rec_st_vars with
+                match Compact_type.Int_map.find_opt v scm.rec_st_vars with
                 | None -> Type.svar n
                 | Some bound ->
                     let seen_st' = Int_set.add v seen_st in
@@ -258,5 +267,5 @@ module Make () = struct
       in
       List.fold_left combine default parts
     in
-    go_ty sch.cty Pos Int_set.empty Int_set.empty
+    go_ty scm.cty Pos Int_set.empty Int_set.empty
 end

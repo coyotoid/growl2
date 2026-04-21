@@ -17,6 +17,12 @@ let rec pp_ty : ty Fmt.t =
   | TPrim `Nat -> Fmt.string ppf "nat"
   | TPrim `Int -> Fmt.string ppf "int"
   | TPrim `Bool -> Fmt.string ppf "bool"
+  | TCon (name, []) -> Fmt.string ppf name
+  | TCon (name, [ arg ]) -> Fmt.pair ~sep:Fmt.sp pp_ty Fmt.string ppf (arg, name)
+  | TCon (name, args) ->
+      Fmt.pair ~sep:Fmt.sp
+        (Fmt.parens (Fmt.list ~sep:Fmt.comma pp_ty))
+        Fmt.string ppf (args, name)
 
 and pp_stack : stack Fmt.t =
  fun ppf s ->

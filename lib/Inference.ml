@@ -71,6 +71,17 @@ module Make () : S = struct
         let* r1 = constrain_stack s3 s1 in
         let* r2 = constrain_stack s2 s4 in
         return (r1 && r2)
+    | TCon (c1, args1), TCon (c2, args2) when String.equal c1 c2 ->
+        let rec go l1 l2 =
+          match (l1, l2) with
+          | [], [] -> return true
+          | a :: t1, b :: t2 ->
+              let* r = constrain_ty a b in
+              let* rest = go t1 t2 in
+              return (r && rest)
+          | _ -> return false
+        in
+        go args1 args2
     | _ ->
         let+ () =
           throw `Error
@@ -124,6 +135,7 @@ module Make () : S = struct
       | TError -> TError
       | TPrim _ as t -> t
       | TFunc (lhs, rhs) -> TFunc (go_stack lhs, go_stack rhs)
+      | TCon (name, args) -> TCon (name, List.map go_ty args)
       | TVar v -> (
           match Hashtbl.find_opt ty_cache v.id with
           | Some v' -> TVar v'

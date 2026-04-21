@@ -10,6 +10,7 @@ type ty_node =
   | TRec of { name : string; body : ty }
   | TVar of string
   | TPrim of Type_primitive.t
+  | TCon of string * ty list
 
 and ty = ty_node Hashcons.hash_consed
 
@@ -36,7 +37,10 @@ module Hc_ty = Hashcons.Make (struct
     | TRec r1, TRec r2 ->
         String.equal r1.name r2.name && r1.body.tag = r2.body.tag
     | TVar a, TVar b -> String.equal a b
-    | TPrim a, TPrim b -> Type_primitive.equal a b (* needs deriving eq *)
+    | TPrim a, TPrim b -> Type_primitive.equal a b
+    | TCon (c1, args1), TCon (c2, args2) ->
+        String.equal c1 c2
+        && List.for_all2 (fun (a : ty) (b : ty) -> a.tag = b.tag) args1 args2
     | TError, TError | TTop, TTop | TBot, TBot -> true
     | _ -> false
 
@@ -47,9 +51,11 @@ module Hc_ty = Hashcons.Make (struct
     | TRec { name; body } -> Hashtbl.hash (3, name, body.hkey)
     | TVar s -> Hashtbl.hash (4, s)
     | TPrim p -> Hashtbl.hash (5, p)
-    | TError -> Hashtbl.hash 6
-    | TTop -> Hashtbl.hash 7
-    | TBot -> Hashtbl.hash 8
+    | TCon (c, args) ->
+        Hashtbl.hash (6, c, List.map (fun (a : ty) -> a.hkey) args)
+    | TError -> Hashtbl.hash 7
+    | TTop -> Hashtbl.hash 8
+    | TBot -> Hashtbl.hash 9
 end)
 
 module Hc_stack = Hashcons.Make (struct
@@ -72,9 +78,9 @@ module Hc_stack = Hashcons.Make (struct
     | SCons (t, s) -> Hashtbl.hash (2, t.hkey, s.hkey)
     | SRec { name; body } -> Hashtbl.hash (3, name, body.hkey)
     | SVar s -> Hashtbl.hash (4, s)
-    | SError -> Hashtbl.hash 6
-    | STop -> Hashtbl.hash 7
-    | SBot -> Hashtbl.hash 8
+    | SError -> Hashtbl.hash 5
+    | STop -> Hashtbl.hash 6
+    | SBot -> Hashtbl.hash 7
 end)
 
 let ty_table = Hc_ty.create 64
@@ -96,6 +102,10 @@ let trec : string -> ty -> ty =
  fun n bd -> Hc_ty.hashcons ty_table (TRec { name = n; body = bd })
 
 let tprim : Type_primitive.t -> ty = fun p -> Hc_ty.hashcons ty_table (TPrim p)
+
+let tcon : string -> ty list -> ty =
+ fun c args -> Hc_ty.hashcons ty_table (TCon (c, args))
+
 let serror : stack = Hc_stack.hashcons stk_table SError
 let stop : stack = Hc_stack.hashcons stk_table STop
 let sbot : stack = Hc_stack.hashcons stk_table SBot
@@ -140,6 +150,7 @@ let rec simplify_ty (t : ty) : ty =
           | None -> tunion a b)
       | _ -> tunion a b)
   | TFunc (a, b) -> tfunc (simplify_stack a) (simplify_stack b)
+  | TCon (c, args) -> tcon c (List.map simplify_ty args)
   | TRec { name; body } -> trec name (simplify_ty body)
   | _ -> t
 
