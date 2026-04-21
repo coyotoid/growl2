@@ -4,11 +4,11 @@ def fact {
   dup 2 < [drop 1] [dup 1 - fact *] ifte
 }
 
-def even { dup 0 = [drop false] [1 - odd] ifte }
+def even { dup 0 = [drop true] [1 - odd] ifte }
 def odd { even not }
 
 def main {
   10 even
   10 odd
+  10 fact
 }
-def omega { dup call }
