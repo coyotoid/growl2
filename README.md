@@ -9,7 +9,7 @@ Growl is written in OCaml.  As such you'll need to have a working OCaml toolchai
 You'll need to install the dependencies manually, like so:
 
 ```shell-session
-$ opam install containers preface fmt hashcons menhir ppx_deriving
+$ opam install containers grace preface fmt hashcons menhir ppx_deriving
 ```
 
 After than, you can build by running `dune build` at the root of the project.

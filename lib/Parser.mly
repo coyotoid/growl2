@@ -4,9 +4,9 @@
 
   let mk_span (s : Lexing.position) (e : Lexing.position) =
     let to_pos p =
-      Span.{ line = p.Lexing.pos_lnum; col = p.Lexing.pos_cnum - p.Lexing.pos_bol }
+      Span.{ line = p.Lexing.pos_lnum; col = p.Lexing.pos_cnum - p.Lexing.pos_bol; byte = p.Lexing.pos_cnum }
     in
-    Span.{ filename = s.pos_fname; lo = to_pos s; hi = to_pos e }
+    Span.{ filename = s.pos_fname; lo = to_pos s; hi = to_pos e; }
 
   let spanned v s e = S.{ value = v; span = mk_span s e }
 

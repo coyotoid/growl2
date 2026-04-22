@@ -2,7 +2,7 @@ module I = Parser.MenhirInterpreter
 
 let current_span filename (lexbuf : Lexing.lexbuf) =
   let to_pos (p : Lexing.position) =
-    Span.{ line = p.pos_lnum; col = p.pos_cnum - p.pos_bol }
+    Span.{ line = p.pos_lnum; col = p.pos_cnum - p.pos_bol; byte = p.pos_cnum }
   in
   Span.
     { filename; lo = to_pos lexbuf.lex_start_p; hi = to_pos lexbuf.lex_curr_p }

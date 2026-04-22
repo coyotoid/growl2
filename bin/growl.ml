@@ -25,31 +25,34 @@ let coalesce_ty t =
 let exec_cmd =
   let run file =
     let db, fid = setup_db file in
-    let open Diagnosed.Syntax in
-    let program = Resolver.ask db (Query.ParsedProgram fid) in
-    if Diagnosed.has `Error program then Diagnosed.return ()
-    else
-      let* program = program in
-      let* types =
-        List.fold_right
-          (fun (def : Ast.def Span.Spanned.t) acc ->
-            let* acc = acc in
-            let* ty = Resolver.ask db (Query.WordType def.value.name.value) in
-            Diagnosed.return ((def.value.name.value, ty) :: acc))
-          program (Diagnosed.return [])
-      in
-      let* main_ty = Resolver.ask db (Query.WordType "main") in
-      match Simple_type.is_error main_ty with
-      | true -> Diagnosed.return ()
-      | false ->
-          let stack = Interpret.exec program in
-          Fmt.epr "Resulting stack: @[%a@]@."
-            (Fmt.brackets (Fmt.list ~sep:Fmt.sp Interpret.pp_value))
-            (List.rev stack);
-          Diagnosed.return ()
+    Reporting.with_reporting
+      (let open Diagnosed.Syntax in
+       let program = Resolver.ask db (Query.ParsedProgram fid) in
+       if Diagnosed.has `Error program then Diagnosed.return ()
+       else
+         let* program = program in
+         let* types =
+           List.fold_right
+             (fun (def : Ast.def Span.Spanned.t) acc ->
+               let* acc = acc in
+               let* ty =
+                 Resolver.ask db (Query.WordType def.value.name.value)
+               in
+               Diagnosed.return ((def.value.name.value, ty) :: acc))
+             program (Diagnosed.return [])
+         in
+         let* main_ty = Resolver.ask db (Query.WordType "main") in
+         match Simple_type.is_error main_ty with
+         | true -> Diagnosed.return ()
+         | false ->
+             let stack = Interpret.exec program in
+             Fmt.epr "Resulting stack: @[%a@]@."
+               (Fmt.brackets (Fmt.list ~sep:Fmt.sp Interpret.pp_value))
+               (List.rev stack);
+             Diagnosed.return ())
   in
   let run file =
-    Reporting.with_reporting (run file) |> Diagnosed.run |> Pair.fst
+    run file |> Diagnosed.run |> Pair.fst
   in
   let doc = "Type-check and run a source file." in
   Cmd.v (Cmd.info "exec" ~doc) Term.(const run $ file)

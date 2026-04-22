@@ -1,10 +1,10 @@
 open Containers
 
-type pos = { line : int; col : int } [@@deriving eq]
+type pos = { line : int; col : int; byte : int } [@@deriving eq]
 type t = { filename : string; lo : pos; hi : pos } [@@deriving eq]
 
 let dummy : t =
-  let dummy_pos = { line = 0; col = 0 } in
+  let dummy_pos = { line = 0; col = 0; byte = 0 } in
   { filename = ""; lo = dummy_pos; hi = dummy_pos }
 
 let merge : t -> t -> t =
