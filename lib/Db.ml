@@ -21,7 +21,7 @@ type t = {
 
 let create : unit -> t =
  fun () ->
-  let module I = Inference.Make () in
+  let module I = Type_inference.Make () in
   {
     cache = Table.create 64;
     rdeps = Table.create 64;

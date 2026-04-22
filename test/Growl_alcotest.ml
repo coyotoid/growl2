@@ -37,7 +37,7 @@ let types_of db fid =
     else Diagnosed.run res_m |> fst
 
 let coalesce_ty t =
-  let module C = Coalescing.Make () in
+  let module C = Type_coalescing.Make () in
   t |> Compact_type.compact |> Compact_type.simplify |> C.coalesce
   |> Type.simplify_ty
 

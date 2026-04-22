@@ -96,7 +96,7 @@ and compute : type a. Db.t -> a Query.t -> a =
             | Some s -> s
             | None -> [ name ]
           in
-          let module I = Inference.Make () in
+          let module I = Type_inference.Make () in
           let entries =
             List.map
               (fun w ->
@@ -120,7 +120,7 @@ and compute : type a. Db.t -> a Query.t -> a =
                     String_map.empty entries
                 in
                 let ctx =
-                  Inference.
+                  Type_inference.
                     {
                       env = String_map.empty;
                       ask = (fun q -> ask db q);

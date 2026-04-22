@@ -1,4 +1,4 @@
-module I = Inference.Make ()
+module I = Type_inference.Make ()
 open Simple_type.Infix
 
 let t_bool = Simple_type.TPrim `Bool

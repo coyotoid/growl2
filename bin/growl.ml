@@ -18,7 +18,7 @@ let setup_db file =
   (db, fid)
 
 let coalesce_ty t =
-  let module C = Coalescing.Make () in
+  let module C = Type_coalescing.Make () in
   t |> Compact_type.compact |> Compact_type.simplify |> C.coalesce
   |> Type.simplify_ty
 
@@ -38,17 +38,6 @@ let exec_cmd =
             Diagnosed.return ((def.value.name.value, ty) :: acc))
           program (Diagnosed.return [])
       in
-      (* List.iter
-        (fun (name, ty) ->
-          Fmt.pr "%a@." Text.pp
-            Text.
-              [
-                Text "The type of ";
-                Verbatim name;
-                Text " is ";
-                Any (coalesce_ty ty, Type_pp.pp_ty);
-              ])
-        types; *)
       let* main_ty = Resolver.ask db (Query.WordType "main") in
       match Simple_type.is_error main_ty with
       | true -> Diagnosed.return ()

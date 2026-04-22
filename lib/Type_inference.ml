@@ -26,7 +26,7 @@ module Make () : S = struct
   let fresh_stack_var ~level () = Simple_type.SVar (fresh_var ~level ())
 
   let coalesce t =
-    let module C = Coalescing.Make () in
+    let module C = Type_coalescing.Make () in
     t |> Compact_type.compact |> Compact_type.simplify |> C.coalesce
     |> Type.simplify_ty
 
