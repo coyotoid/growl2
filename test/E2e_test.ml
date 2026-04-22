@@ -2,22 +2,27 @@
 
 open Growl_alcotest
 
+let assert_type types name ty =
+  match String_map.find_opt name types with
+  | None -> Alcotest.fail (Printf.sprintf "word `%s` doesn't exist" name)
+  | Some ty' ->
+      Alcotest.check Growl_alcotest.ty "types are not equal" (coalesce_ty ty')
+        ty
+
 let test_simple () =
   let db = setup_db () in
   let fid =
     load_string db "test.grr"
       {|
-        def test {
-          1 2 3 [+] dip
-        }  
+        def ifte {
+          choose call
+        }
       |}
   in
   let types = types_of db fid in
-  match String_map.find_opt "test" types with
-  | None -> Alcotest.fail "word test doesn't exist"
-  | Some s ->
-      Alcotest.check ty "types are equal" (coalesce_ty s)
-        Growl_core.Type.(svar "r" => (svar "r" &> tprim `Int &> tprim `Nat))
+  let arr = Growl_core.Type.(svar "r" => svar "s") in
+  assert_type types "ifte"
+    Growl_core.Type.(svar "r" &> tprim `Bool &> arr &> arr => svar "s")
 
 let test_recursive () =
   let db = setup_db () in
@@ -31,11 +36,8 @@ let test_recursive () =
       |}
   in
   let types = types_of db fid in
-  match String_map.find_opt "fact" types with
-  | None -> Alcotest.fail "word fact doesn't exist"
-  | Some s ->
-      Alcotest.check ty "types are equal" (coalesce_ty s)
-        Growl_core.Type.(svar "r" &> tprim `Int => (svar "r" &> tprim `Int))
+  assert_type types "fact"
+    Growl_core.Type.(svar "r" &> tprim `Int => (svar "r" &> tprim `Int))
 
 let test_mutually_recursive () =
   let db = setup_db () in
@@ -48,15 +50,11 @@ let test_mutually_recursive () =
       |}
   in
   let types = types_of db fid in
-  let assert_ty word =
-    match String_map.find_opt word types with
-    | None -> Alcotest.fail ("word " ^ word ^ " doesn't exist")
-    | Some s ->
-        Alcotest.check ty "types are equal" (coalesce_ty s)
-          Growl_core.Type.(svar "r" &> tprim `Int => (svar "r" &> tprim `Bool))
+  let expected =
+    Growl_core.Type.(svar "r" &> tprim `Int => (svar "r" &> tprim `Bool))
   in
-  assert_ty "even";
-  assert_ty "odd"
+  assert_type types "even" expected;
+  assert_type types "odd" expected
 
 let test_non_terminating () =
   let db = setup_db () in
@@ -68,15 +66,9 @@ let test_non_terminating () =
       |}
   in
   let types = types_of db fid in
-  let assert_ty word =
-    match String_map.find_opt word types with
-    | None -> Alcotest.fail ("word " ^ word ^ " doesn't exist")
-    | Some s ->
-        Alcotest.check ty "types are equal" (coalesce_ty s)
-          Growl_core.Type.(stop => sbot)
-  in
-  assert_ty "forever";
-  assert_ty "forever-2"
+  let expected = Growl_core.Type.(stop => sbot) in
+  assert_type types "forever" expected;
+  assert_type types "forever-2" expected
 
 let () =
   Alcotest.(
@@ -88,6 +80,7 @@ let () =
             test_case "recursive inference (factorial)" `Quick test_recursive;
             test_case "mutually recursive inference (even/odd)" `Quick
               test_mutually_recursive;
-            test_case "non-terminating inference (forever)" `Quick test_non_terminating
+            test_case "non-terminating inference (forever)" `Quick
+              test_non_terminating;
           ] );
       ])
