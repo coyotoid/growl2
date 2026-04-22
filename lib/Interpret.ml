@@ -1,3 +1,5 @@
+(* TODO: make this use the query engine *)
+
 open Containers
 module String_map = Map.Make (String)
 
@@ -38,24 +40,24 @@ let unop_bool stack op =
   | _ -> failwith "stack underflow"
 
 (* term execution *)
-let rec exec_term wenv lenv stack (term : Ast.term) =
+let rec exec_term db lenv stack (term : Ast.term) =
   match term.value with
   | Id -> stack
   | Cat (f, g) ->
-      let stack' = exec_term wenv lenv stack f in
-      exec_term wenv lenv stack' g
+      let stack' = exec_term db lenv stack f in
+      exec_term db lenv stack' g
   | Lit (`Int n) -> VInt n :: stack
   | Lit (`Bool n) -> VBool n :: stack
-  | Word w -> exec_word wenv lenv stack w
+  | Word w -> exec_word db lenv stack w
   | Quote f -> VQuote (f, lenv) :: stack
   | Bind (name, body) -> (
       match stack with
       | [] -> failwith "stack underflow"
       | v :: rest ->
           let lenv' = String_map.add name.value v lenv in
-          exec_term wenv lenv' rest body)
+          exec_term db lenv' rest body)
 
-and exec_word wenv lenv stack = function
+and exec_word db lenv stack = function
   | "dup" -> (
       match stack with [] -> failwith "stack underflow" | v :: _ -> v :: stack)
   | "drop" -> (
@@ -83,22 +85,30 @@ and exec_word wenv lenv stack = function
       | _ -> failwith "stack underflow")
   | "call" -> (
       match stack with
-      | VQuote (body, cap) :: rest -> exec_term wenv cap rest body
+      | VQuote (body, cap) :: rest -> exec_term db cap rest body
       | _ :: _ -> failwith "type mismatch"
       | _ -> failwith "stack underflow")
   | w -> (
-      match String_map.find_opt w wenv with
-      | Some body -> exec_term wenv String_map.empty stack body
-      | None -> failwith ("unbound word: " ^ w))
+      match String_map.find_opt w lenv with
+      | Some value -> value :: stack
+      | None -> (
+          let expr =
+            Reporting.with_reporting (Resolver.ask db (Query.WordExpr w))
+          in
+          if Diagnosed.has `Error expr then failwith "query engine error"
+          else
+            let expr, diagnostics = Diagnosed.run expr in
+            match expr with
+            | Some body -> exec_term db String_map.empty stack body
+            | None -> failwith "unbound word"))
 
-let exec (prog : Ast.program) =
-  (* Build word environment *)
-  let word_env =
-    List.fold_left
-      (fun acc (def : Ast.def Span.Spanned.t) ->
-        String_map.add def.value.name.value def.value.body acc)
-      String_map.empty prog
+let exec db =
+  let main_expr =
+    Reporting.with_reporting (Resolver.ask db (Query.WordExpr "main"))
   in
-  match String_map.find_opt "main" word_env with
-  | Some main -> exec_term word_env String_map.empty [] main
-  | _ -> failwith "no main function to execute"
+  if Diagnosed.has `Error main_expr then failwith "query engine error"
+  else
+    let main_expr, _ = Diagnosed.run main_expr in
+    match main_expr with
+    | Some main -> exec_term db String_map.empty [] main
+    | _ -> failwith "no main function to execute"

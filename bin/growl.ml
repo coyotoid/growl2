@@ -45,7 +45,7 @@ let exec_cmd =
          match Simple_type.is_error main_ty with
          | true -> Diagnosed.return ()
          | false ->
-             let stack = Interpret.exec program in
+             let stack = Interpret.exec db in
              Fmt.epr "Resulting stack: @[%a@]@."
                (Fmt.brackets (Fmt.list ~sep:Fmt.sp Interpret.pp_value))
                (List.rev stack);
