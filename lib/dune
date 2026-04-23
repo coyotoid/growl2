@@ -1,16 +1,8 @@
 (library
  (name growl_core)
- (libraries
-  containers
-  containers.scc
-  fmt
-  preface
-  hashcons
-  grace
-  grace.ansi_renderer
-  menhirLib)
+ (libraries containers containers.scc fmt preface hashcons menhirLib)
  (preprocess
-  (pps ppx_deriving.eq ppx_deriving.ord ppx_deriving.show)))
+  (pps ppx_deriving.eq ppx_deriving.ord)))
 
 (menhir
  (modules Parser)

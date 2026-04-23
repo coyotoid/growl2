@@ -3,6 +3,7 @@ open Simple_type.Infix
 
 let t_bool = Simple_type.TPrim `Bool
 let t_int = Simple_type.TPrim `Int
+let t_string = Simple_type.TPrim `String
 let t_list a = Simple_type.TCon ("list", [ a ])
 
 let t_dup =
@@ -78,7 +79,15 @@ let t_list_length =
   let a = I.fresh_ty_var ~level:0 () in
   rho &> t_list a => (rho &> t_int)
 
-  
+let t_show =
+  let rho = I.fresh_stack_var ~level:0 () in
+  let a = I.fresh_ty_var ~level:0 () in
+  rho &> a => (rho &> t_string)
+
+let t_print =
+  let rho = I.fresh_stack_var ~level:0 () in
+  rho &> t_string => rho
+
 let load_prelude db =
   let store name ty = Db.store db (Query.WordType name) ty [] in
   store "dup" t_dup;
@@ -106,4 +115,9 @@ let load_prelude db =
   store "list/uncons" t_list_uncons;
   store "list/empty?" t_list_empty;
   store "list/length" t_list_length;
+
+  (* output *)
+  store "show" t_show;
+  store "print" t_print;
+
   ()

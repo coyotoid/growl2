@@ -18,6 +18,8 @@ let rec pp_value : value Fmt.t =
   | VList l -> Fmt.braces (Fmt.list ~sep:Fmt.sp pp_value) ppf l
   | VQuote _ -> Fmt.string ppf "<quote>"
 
+let show_value = Fmt.to_to_string pp_value
+
 (* helpers *)
 let binop_int stack op =
   match stack with
@@ -138,17 +140,28 @@ and exec_word db lenv stack = function
       | VList l :: rest -> VInt (List.length l) :: rest
       | _ :: _ -> failwith "type mismatch"
       | _ -> failwith "stack underflow")
+  | "show" -> (
+      match stack with
+      | elem :: rest -> VString (show_value elem) :: rest
+      | _ -> failwith "stack underflow")
+  | "print" -> (
+      match stack with
+      | VString str :: rest ->
+          print_string str;
+          rest
+      | _ :: _ -> failwith "type mismatch"
+      | _ -> failwith "stack underflow")
   | w -> (
       match String_map.find_opt w lenv with
       | Some value -> value :: stack
       | None -> (
-          let expr = Resolver.ask db (Query.WordExpr w) in
-          match expr with
-          | Some body -> exec_term db String_map.empty stack body
+          let def = Resolver.ask db (Query.WordDef w) in
+          match def with
+          | Some def -> exec_term db String_map.empty stack def.value.body
           | None -> failwith ("unbound word " ^ w)))
 
 let exec db =
-  let main_expr = Resolver.ask db (Query.WordExpr "main") in
-  match main_expr with
-  | Some main -> exec_term db String_map.empty [] main
+  let main_def = Resolver.ask db (Query.WordDef "main") in
+  match main_def with
+  | Some def -> exec_term db String_map.empty [] def.value.body
   | _ -> failwith "no main function to execute"

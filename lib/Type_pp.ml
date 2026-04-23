@@ -11,7 +11,7 @@ let rec pp_ty : ty Fmt.t =
   | TInter (a, b) ->
       (Fmt.parens (Fmt.pair ~sep:(Fmt.any "@ & ") pp_ty pp_ty)) ppf (a, b)
   | TFunc (a, b) ->
-      (Fmt.parens (Fmt.pair ~sep:(Fmt.any "@ -> ") pp_stack pp_stack)) ppf (a, b)
+      (Fmt.brackets (Fmt.pair ~sep:(Fmt.any "@ -> ") pp_stack pp_stack)) ppf (a, b)
   | TRec { name; body } ->
       Fmt.pair ~sep:Fmt.sp
         Fmt.(any "μ" ++ string ++ any ".")

@@ -12,7 +12,12 @@ type term' =
 
 and term = term' Span.Spanned.t
 
-type def = { name : string Span.Spanned.t; body : term }
+type def = {
+  name : string Span.Spanned.t;
+  annot : Type_ast.annot option;
+  body : term;
+}
+
 type program = def Span.Spanned.t list
 
 let primitive_of_literal : literal -> Type_primitive.t = function

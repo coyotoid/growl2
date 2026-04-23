@@ -21,9 +21,12 @@
 %token <string> STRING
 %token <string> COMMAND
 %token <string> WORD
+%token <string> STACK_VAR
 %token DEF
 %token ARROW
+%token COMMA
 %token SEMI
+%token LPAREN RPAREN
 %token LBRACE RBRACE
 %token LBRACK RBRACK
 %token EOF
@@ -38,16 +41,24 @@ program:
 def:
   | DEF name = WORD LBRACE body = terms RBRACE
     { spanned
-        { name = spanned name $startpos(name) $endpos(name); body }
+        { name = spanned name $startpos(name) $endpos(name); annot = None; body }
+        $startpos $endpos }
+  | DEF name = WORD LBRACK annot = annot RBRACK LBRACE body = terms RBRACE
+    { spanned
+        { name = spanned name $startpos(name) $endpos(name)
+        ; annot = Some annot
+        ; body }
         $startpos $endpos }
   | DEF name = WORD LBRACE error RBRACE
     { spanned
         { name = spanned name $startpos(name) $endpos(name)
+        ; annot = None
         ; body = spanned Id $startpos $endpos }
         $startpos $endpos }
   | DEF error RBRACE
     { spanned
-        { name = spanned "_" $startpos $endpos
+        { name = spanned "" $startpos $endpos
+        ; annot = None
         ; body = spanned Id $startpos $endpos }
         $startpos $endpos }
 
@@ -87,3 +98,21 @@ literal:
     { spanned (Lit (`String s)) $startpos $endpos }
   | LBRACE l = list(literal) RBRACE
     { spanned (List l) $startpos $endpos }
+
+type_atom:
+  | name = WORD
+    { Type_ast.ty_of_string name }
+  | t = type_atom name = WORD
+    { Type_ast.TCon (name, [t]) }
+  | LPAREN ts = separated_list(COMMA, type_atom) RPAREN name = WORD
+    { Type_ast.TCon (name, ts) }
+  | LBRACK annot = annot RBRACK
+    { Type_ast.TFunc annot }
+
+stack_atom:
+  | t = type_atom { Type_ast.SItem t }
+  | v = STACK_VAR { Type_ast.SRest v }
+
+annot:
+  | inputs = separated_list(COMMA, stack_atom) ARROW outputs = separated_list(COMMA, stack_atom)
+    { Type_ast.{ inputs; outputs } }

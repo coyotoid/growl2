@@ -1,0 +1,13 @@
+def ifte { choose call }
+
+def println { print "\n" print }
+
+def fact {
+  ifte: dup 2 <
+    [drop 1]
+    [dup 1 - fact *];
+}
+
+def main {
+  10 fact show println
+}

@@ -16,6 +16,11 @@ let word_refs (term : Ast.term) : string Containers_scc.iter =
   in
   go term
 
+let coalesce_ty t =
+  let module C = Type_coalescing.Make () in
+  t |> Compact_type.compact |> Compact_type.simplify |> C.coalesce
+  |> Type.simplify_ty
+
 let rec ask : type a. Db.t -> a Query.t -> a =
  fun db q ->
   match Db.find db q with
@@ -59,15 +64,14 @@ and compute : type a. Db.t -> a Query.t -> a =
           | None -> fun _ -> ()
           | Some term -> word_refs term)
         ~nodes ()
-  | Query.WordExpr name ->
+  | Query.WordDef name ->
       let files = ask db (Query.Manifest ()) in
       List.find_map
         (fun file_id ->
           let prog = ask db (Query.ParsedProgram file_id) in
           List.find_map
             (fun (def : Ast.def Span.Spanned.t) ->
-              if String.equal def.value.name.value name then Some def.value.body
-              else None)
+              if String.equal def.value.name.value name then Some def else None)
             prog)
         files
   | Query.WordType name -> (
@@ -118,17 +122,38 @@ and compute : type a. Db.t -> a Query.t -> a =
                           placeholders;
                         }
                     in
+                    let def = ask db (Query.WordDef w) in
                     let result =
                       let open Diagnosed in
-                      let expr = ask db (Query.WordExpr w) in
-                      match expr with
-                      | Some expr -> I.infer ctx 0 expr
+                      match def with
+                      | Some def -> I.infer ctx 0 def.value.body
                       | None ->
                           let () =
                             throw `Error
                               Text.[ Text "unbound word: "; Verbatim w ]
                           in
                           Simple_type.(TFunc (SError, SError))
+                    in
+                    let result =
+                      match def with
+                      | Some { value = { annot = Some ann; _ }; span } ->
+                          let coalesced = coalesce_ty result in
+                          let ann_type  = Type_parsing.annot_to_type ann in
+                          if Type_parsing.check_ann_shape ann_type coalesced then
+                            Type_parsing.simple_ty_of_annot (module I) ann
+                          else
+                            let () =
+                              Diagnosed.adorn ~span (fun () ->
+                                Diagnosed.throw `Error
+                                  Text.[
+                                    Text "annotation ";
+                                    Any (ann_type, Type_pp.pp_ty);
+                                    Text " does not match inferred type ";
+                                    Any (coalesced, Type_pp.pp_ty);
+                                  ])
+                            in
+                            Simple_type.(TFunc (SError, SError))
+                      | _ -> result
                     in
                     (w, result))
                   entries)
@@ -138,8 +163,8 @@ and compute : type a. Db.t -> a Query.t -> a =
             List.map2
               (fun (_, ph, _) (w, ty) ->
                 let body_span =
-                  match ask db (Query.WordExpr w) with
-                  | Some (expr : Ast.term) -> expr.span
+                  match ask db (Query.WordDef w) with
+                  | Some def -> def.value.body.span
                   | None -> Span.dummy
                 in
                 let ok =

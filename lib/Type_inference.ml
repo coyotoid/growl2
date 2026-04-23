@@ -15,7 +15,7 @@ module type S = sig
   val constrain_ty : Simple_type.ty -> Simple_type.ty -> bool
 end
 
-module Make () = struct
+module Make () : S = struct
   let id = ref 0
   let next_id () = Ref.get_then_incr id
 

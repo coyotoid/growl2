@@ -3,7 +3,7 @@
  (modules Growl_alcotest)
  (libraries growl_core alcotest fmt))
 
-(test
- (name E2e_test)
+(tests
+ (names E2e_test)
  (modules E2e_test)
  (libraries growl_core growl_alcotest alcotest))

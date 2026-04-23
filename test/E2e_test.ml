@@ -14,9 +14,7 @@ let test_simple () =
   let fid =
     load_string db "test.grr"
       {|
-        def ifte {
-          choose call
-        }
+        def ifte { choose call }
       |}
   in
   let types = types_of db fid in
@@ -72,9 +70,9 @@ let test_non_terminating () =
 
 let () =
   Alcotest.(
-    run "Growl"
+    run "Growl_core"
       [
-        ( "E2E",
+        ( "end-to-end",
           [
             test_case "simple inference" `Quick test_simple;
             test_case "recursive inference (factorial)" `Quick test_recursive;

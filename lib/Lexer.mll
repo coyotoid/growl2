@@ -20,18 +20,22 @@ let op         = op_char+
 rule token = parse
   | whitespace          { token lexbuf }
   | '\n'                { Lexing.new_line lexbuf; token lexbuf }
-  | '('                 { comment 1 lexbuf }
+  | "(*"                { comment 1 lexbuf }
   | '"'                 { string (Buffer.create 16) lexbuf }
   | integer as n        { INT (int_of_string n) }
   | "->"                { ARROW }
   | ident as s          { keyword_or_ident s }
   | (ident as s) ':'    { COMMAND s }
+  | ".." (ident as s)   { STACK_VAR s }
   | op as s             { WORD s }
+  | '('                 { LPAREN }
+  | ')'                 { RPAREN }
   | '['                 { LBRACK }
   | ']'                 { RBRACK }
   | '{'                 { LBRACE }
   | '}'                 { RBRACE }
   | ';'                 { SEMI }
+  | ','                 { COMMA }
   | eof                 { EOF }
   | _ as c              { failwith (Printf.sprintf "unexpected character: %C" c) }
 
@@ -49,8 +53,8 @@ and string buf = parse
   | _ as c              { Buffer.add_char buf c; string buf lexbuf }
 
 and comment depth = parse
-  | "("                 { comment (depth + 1) lexbuf }
-  | ")"                 { if depth = 1 then token lexbuf
+  | "(*"                { comment (depth + 1) lexbuf }
+  | "*)"                { if depth = 1 then token lexbuf
                           else comment (depth - 1) lexbuf }
   | '\n'                { Lexing.new_line lexbuf; comment depth lexbuf }
   | eof                 { failwith "unterminated comment" }

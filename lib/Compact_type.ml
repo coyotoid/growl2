@@ -279,8 +279,8 @@ let simplify (scm : scheme) : scheme =
           else begin
             Hashtbl.replace ty_subst w (Some v);
             if Hashtbl.mem new_rec_ty w then begin
-              let b_v = Hashtbl.find new_rec_ty v in
               let b_w = Hashtbl.find new_rec_ty w in
+              let b_v = Option.value ~default:empty_ty (Hashtbl.find_opt new_rec_ty v) in
               Hashtbl.replace new_rec_ty v (merge_ty pol b_v b_w);
               Hashtbl.remove new_rec_ty w
             end
@@ -308,8 +308,8 @@ let simplify (scm : scheme) : scheme =
           else begin
             Hashtbl.replace st_subst w (Some v);
             if Hashtbl.mem new_rec_st w then begin
-              let b_v = Hashtbl.find new_rec_st v in
               let b_w = Hashtbl.find new_rec_st w in
+              let b_v = Option.value ~default:empty_stack (Hashtbl.find_opt new_rec_st v) in
               Hashtbl.replace new_rec_st v (merge_stack pol b_v b_w);
               Hashtbl.remove new_rec_st w
             end
