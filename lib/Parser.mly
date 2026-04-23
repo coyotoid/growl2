@@ -46,7 +46,7 @@ def:
   | DEF name = WORD LBRACK annot = annot RBRACK LBRACE body = terms RBRACE
     { spanned
         { name = spanned name $startpos(name) $endpos(name)
-        ; annot = Some annot
+        ; annot = Some (spanned annot $startpos(annot) $endpos(annot))
         ; body }
         $startpos $endpos }
   | DEF name = WORD LBRACE error RBRACE

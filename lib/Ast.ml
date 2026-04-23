@@ -1,3 +1,5 @@
+module S = Span.Spanned
+
 type literal = [ `Int of int | `Bool of bool | `String of string ]
 
 type term' =
@@ -7,32 +9,16 @@ type term' =
   | List of term list
   | Word of string
   | Quote of term
-  | Bind of string Span.Spanned.t * term
-  | Command of string Span.Spanned.t * term
+  | Bind of string S.t * term
+  | Command of string S.t * term
 
-and term = term' Span.Spanned.t
+and term = term' S.t
 
-type def = {
-  name : string Span.Spanned.t;
-  annot : Type_ast.annot option;
-  body : term;
-}
-
-type program = def Span.Spanned.t list
+type def = { name : string S.t; annot : Type_ast.annot S.t option; body : term }
+type program = def S.t list
 
 let primitive_of_literal : literal -> Type_primitive.t = function
   | `Int n when n >= 0 -> `Nat
   | `Int _ -> `Int
   | `Bool _ -> `Bool
   | `String _ -> `String
-
-let seq terms =
-  let spanned value = Span.(Spanned.{ value; span = dummy }) in
-  Option.value ~default:Id
-    (List.fold_right
-       (fun x acc ->
-         match acc with
-         | None -> Some x
-         | Some xs -> Some (Cat (spanned x, spanned xs)))
-       terms None)
-  |> spanned

@@ -68,7 +68,8 @@ let annot_to_type (ann : Type_ast.annot) : Type.ty =
       (fun acc -> function
         | Type_ast.SItem t -> Type.scons (go_ty t) acc
         | Type_ast.SRest _ ->
-            failwith "stack variable must appear at the bottom")
+            Diagnosed.fatal `Error
+              [ Text "stack variable must appear at the bottom" ])
       base rest
   in
   Type.tfunc (go_stack ann.inputs) (go_stack ann.outputs)
@@ -83,7 +84,7 @@ let check_ann_shape (ann : Type.ty) (inferred : Type.ty) : bool =
   in
   let loose_stk (prev : Type.stack) (cur : Type.stack) =
     match (prev.node, cur.node) with
-    | SVar _, SVar _ -> true
+    | SVar _, Type.SVar _ -> true
     | _ -> prev.tag = cur.tag
   in
   let rec go_ty (a : Type.ty) (i : Type.ty) =

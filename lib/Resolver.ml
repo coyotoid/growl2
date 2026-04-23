@@ -138,19 +138,24 @@ and compute : type a. Db.t -> a Query.t -> a =
                       match def with
                       | Some { value = { annot = Some ann; _ }; span } ->
                           let coalesced = coalesce_ty result in
-                          let ann_type  = Type_parsing.annot_to_type ann in
-                          if Type_parsing.check_ann_shape ann_type coalesced then
-                            Type_parsing.simple_ty_of_annot (module I) ann
+                          let ann_type =
+                            Diagnosed.adorn ~span:ann.span (fun () ->
+                                Type_parsing.annot_to_type ann.value)
+                          in
+                          if Type_parsing.check_ann_shape ann_type coalesced
+                          then
+                            Type_parsing.simple_ty_of_annot (module I) ann.value
                           else
                             let () =
                               Diagnosed.adorn ~span (fun () ->
-                                Diagnosed.throw `Error
-                                  Text.[
-                                    Text "annotation ";
-                                    Any (ann_type, Type_pp.pp_ty);
-                                    Text " does not match inferred type ";
-                                    Any (coalesced, Type_pp.pp_ty);
-                                  ])
+                                  Diagnosed.throw `Error
+                                    Text.
+                                      [
+                                        Text "annotation ";
+                                        Any (ann_type, Type_pp.pp_ty);
+                                        Text " does not match inferred type ";
+                                        Any (coalesced, Type_pp.pp_ty);
+                                      ])
                             in
                             Simple_type.(TFunc (SError, SError))
                       | _ -> result
