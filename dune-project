@@ -13,7 +13,7 @@
 
 (maintainers "Javier B. Torres <lobo@quiltro.org>")
 
-(license LICENSE)
+(license BSD-3-Clause)
 
 (documentation https://quiltro.org/projects/growl/)
 
@@ -21,6 +21,13 @@
  (name growl)
  (synopsis "An experimental programming language")
  (description
-  "An experimental, statically typed, stack-based programming language.")
- (depends ocaml)
- (tags (langdev)))
+  "Growl is an experimental, statically typed, stack-based programming language.")
+ (depends
+  ocaml
+  (containers (>= 3.18))
+  (fmt (>= 0.11.0))
+  (cmdliner (>= 2.1.0))
+  (hashcons (>= 1.4.0))
+  (ppx_deriving (>= 6.1.1))
+  (alcotest (and :with-test (>= 1.9.1))))
+ (tags (langdev concatenative)))

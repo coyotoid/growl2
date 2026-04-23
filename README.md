@@ -7,10 +7,11 @@ An experimental, statically typed, stack-based programming language.
 Growl is written in OCaml.  As such you'll need to have a working OCaml 
 toolchain, the `opam` package manager, and the `dune` build system.
 
-You'll need to install the dependencies manually, like so:
+In the root of the project, run the following command to install the
+dependencies required:
 
 ```shell-session
-$ opam install containers preface fmt hashcons menhir ppx_deriving
+$ opam install --deps-only .
 ```
 
 After than, you can build by running `dune build` at the root of the project.

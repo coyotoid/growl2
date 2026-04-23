@@ -2,17 +2,23 @@
 opam-version: "2.0"
 synopsis: "An experimental programming language"
 description:
-  "An experimental, statically typed, stack-based programming language."
+  "Growl is an experimental, statically typed, stack-based programming language."
 maintainer: ["Javier B. Torres <lobo@quiltro.org>"]
 authors: ["Javier B. Torres <lobo@quiltro.org>"]
-license: "LICENSE"
-tags: ["langdev"]
+license: "BSD-3-Clause"
+tags: ["langdev" "concatenative"]
 homepage: "https://codeberg.org/growl/growl"
 doc: "https://quiltro.org/projects/growl/"
 bug-reports: "https://codeberg.org/growl/growl/issues"
 depends: [
   "dune" {>= "3.22"}
   "ocaml"
+  "containers" {>= "3.18"}
+  "fmt" {>= "0.11.0"}
+  "cmdliner" {>= "2.1.0"}
+  "hashcons" {>= "1.4.0"}
+  "ppx_deriving" {>= "6.1.1"}
+  "alcotest" {with-test & >= "1.9.1"}
   "odoc" {with-doc}
 ]
 build: [
