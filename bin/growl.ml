@@ -25,6 +25,11 @@ let coalesce_ty t =
 let exec_cmd =
   let run file =
     let db, fid = setup_db file in
+    let program = Resolver.ask db (Query.ParsedProgram fid) in
+    List.iter
+      (fun (def : Ast.def Span.Spanned.t) ->
+        ignore (Resolver.ask db (Query.WordType def.value.name.value)))
+      program;
     let main_ty = Resolver.ask db (Query.WordType "main") in
     match Simple_type.is_error main_ty with
     | true -> ()

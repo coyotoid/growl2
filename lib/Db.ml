@@ -15,7 +15,6 @@ type t = {
   cache : entry Table.t;
   rdeps : Key.t list Table.t;
   mutable current_deps : Key.t list;
-  (* for recursive calls to work *)
   types_in_progress : (string, Simple_type.ty * bool ref) Hashtbl.t;
 }
 

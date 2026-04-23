@@ -11,8 +11,8 @@
 let whitespace = [' ' '\t' '\r']+
 let digit      = ['0'-'9']
 let integer    = digit+
-let ident_head = ['a'-'z' 'A'-'Z' '_']
-let ident_tail = ['a'-'z' 'A'-'Z' '0'-'9' '_' '-' '?' '!']
+let ident_head = ['a'-'z' 'A'-'Z' '0'-'9' '_']
+let ident_tail = ['a'-'z' 'A'-'Z' '0'-'9' '_' '-' '?' '!' '/']
 let ident      = ident_head ident_tail*
 let op_char    = ['+' '-' '*' '/' '<' '>' '=' '!' '@' '&' '|' '^' '~' '%']
 let op         = op_char+

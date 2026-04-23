@@ -1,0 +1,25 @@
+def ifte { choose call }
+
+def list/head { list/uncons drop }
+def list/tail { list/uncons swap drop }
+
+def over { -> b; -> a; a b a }
+def 2dup { -> b; -> a; a b a b }
+
+def 2dip { swap [dip] dip }
+
+def keep { over [call] dip }
+def 2keep { [2dup] dip 2dip }
+
+def list/each {
+    ifte: over list/empty?
+        [drop drop]
+        [
+            [ [list/head] dip call ] 2keep
+            [list/tail] dip list/each
+        ];
+}
+
+def main {
+    {1 2 3 4} [drop] list/each
+}

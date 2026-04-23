@@ -7,13 +7,15 @@ type value =
   | VInt of int
   | VBool of bool
   | VString of string
+  | VList of value list
   | VQuote of Ast.term * value String_map.t
 
-let pp_value : value Fmt.t =
+let rec pp_value : value Fmt.t =
  fun ppf -> function
   | VInt i -> Fmt.int ppf i
   | VBool b -> Fmt.bool ppf b
   | VString s -> Fmt.quote (Fmt.of_to_string String.escaped) ppf s
+  | VList l -> Fmt.braces (Fmt.list ~sep:Fmt.sp pp_value) ppf l
   | VQuote _ -> Fmt.string ppf "<quote>"
 
 (* helpers *)
@@ -51,6 +53,14 @@ let rec exec_term db lenv stack (term : Ast.term) =
   | Lit (`Int i) -> VInt i :: stack
   | Lit (`Bool b) -> VBool b :: stack
   | Lit (`String s) -> VString s :: stack
+  | List ls ->
+      let vals =
+        List.map
+          (fun el ->
+            match exec_term db lenv [] el with [ v ] -> v | _ -> assert false)
+          ls
+      in
+      VList vals :: stack
   | Word w -> exec_word db lenv stack w
   | Quote f -> VQuote (f, lenv) :: stack
   | Bind (name, body) -> (
@@ -94,6 +104,40 @@ and exec_word db lenv stack = function
       | VQuote (body, cap) :: rest -> exec_term db cap rest body
       | _ :: _ -> failwith "type mismatch"
       | _ -> failwith "stack underflow")
+  | "dip" -> (
+      match stack with
+      | VQuote (body, cap) :: x :: rest ->
+          let stack' = exec_term db cap rest body in
+          x :: stack'
+      | _ :: _ :: _ -> failwith "type mismatch"
+      | _ -> failwith "stack underflow")
+  | "list/singleton" -> (
+      match stack with
+      | a :: rest -> VList [ a ] :: rest
+      | _ -> failwith "stack underflow")
+  | "list/cons" -> (
+      match stack with
+      | a :: VList lst :: rest -> VList (a :: lst) :: rest
+      | _ :: _ :: _ -> failwith "type mismatch"
+      | _ -> failwith "stack underflow")
+  | "list/uncons" -> (
+      match stack with
+      | VList [] :: rest -> failwith "uncons on empty list"
+      | VList [ a ] :: rest -> VList [] :: a :: rest
+      | VList lst :: rest -> VList (List.tl lst) :: List.hd lst :: rest
+      | _ :: _ -> failwith "type mismatch"
+      | _ -> failwith "stack underflow")
+  | "list/empty?" -> (
+      match stack with
+      | VList [] :: rest -> VBool true :: rest
+      | VList _ :: rest -> VBool false :: rest
+      | _ :: _ -> failwith "type mismatch"
+      | _ -> failwith "stack underflow")
+  | "list/length" -> (
+      match stack with
+      | VList l :: rest -> VInt (List.length l) :: rest
+      | _ :: _ -> failwith "type mismatch"
+      | _ -> failwith "stack underflow")
   | w -> (
       match String_map.find_opt w lenv with
       | Some value -> value :: stack
@@ -101,7 +145,7 @@ and exec_word db lenv stack = function
           let expr = Resolver.ask db (Query.WordExpr w) in
           match expr with
           | Some body -> exec_term db String_map.empty stack body
-          | None -> failwith "unbound word"))
+          | None -> failwith ("unbound word " ^ w)))
 
 let exec db =
   let main_expr = Resolver.ask db (Query.WordExpr "main") in

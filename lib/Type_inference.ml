@@ -162,6 +162,16 @@ module Make () = struct
     | Lit l ->
         let rho = fresh_stack_var ~level () in
         TFunc (rho, SCons (TPrim (primitive_of_literal l), rho))
+    | List ts ->
+        let elem_ty = fresh_ty_var ~level () in
+        List.iter
+          (fun el ->
+            match infer ctx level el with
+            | TFunc (s_in, SCons (t, _)) -> ignore (constrain_ty t elem_ty)
+            | _ -> assert false)
+          ts;
+        let rho = fresh_stack_var ~level () in
+        TFunc (rho, SCons (TCon ("list", [ elem_ty ]), rho))
     | Word name ->
         Diagnosed.adorn ~span:term.span (fun () ->
             type_of_word ~span:term.span ctx level name)

@@ -25,7 +25,6 @@
 %token ARROW
 %token SEMI
 %token LBRACE RBRACE
-%token LPAREN RPAREN
 %token LBRACK RBRACK
 %token EOF
 
@@ -68,12 +67,8 @@ command:
     { Command (spanned name $startpos(name) $endpos(name), body) }
 
 term:
-  | n = INT
-    { spanned (Lit (`Int n)) $startpos $endpos }
-  | b = BOOL
-    { spanned (Lit (`Bool b)) $startpos $endpos }
-  | s = STRING
-    { spanned (Lit (`String s)) $startpos $endpos }
+  | lit = literal
+    { lit }
   | name = WORD
     { spanned (Word name) $startpos $endpos }
   | LBRACK body = terms RBRACK
@@ -83,3 +78,12 @@ term:
   | cmd = command
     { spanned cmd $startpos $endpos }
 
+literal:
+  | i = INT
+    { spanned (Lit (`Int i)) $startpos $endpos }
+  | b = BOOL
+    { spanned (Lit (`Bool b)) $startpos $endpos }
+  | s = STRING
+    { spanned (Lit (`String s)) $startpos $endpos }
+  | LBRACE l = list(literal) RBRACE
+    { spanned (List l) $startpos $endpos }

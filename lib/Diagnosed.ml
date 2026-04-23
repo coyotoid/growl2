@@ -54,8 +54,10 @@ let adorn ~span f =
           | _ -> None);
     }
 
+let replay tape = List.iter (fun d -> Effect.perform (Emit d)) tape
+
 let raise (r, d) =
   let errs = List.filter Diagnostic.is_error d in
-  if List.is_empty errs then
-    ((match r with Some r -> r | None -> assert false), d)
-  else raise (Fatal d)
+  replay (List.filter (fun d -> not (Diagnostic.is_error d)) d);
+  if List.is_empty errs then match r with Some r -> r | None -> assert false
+  else Stdlib.raise (Fatal errs)

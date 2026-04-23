@@ -38,7 +38,7 @@ and compute : type a. Db.t -> a Query.t -> a =
   | Query.ParsedProgram (Query.FileId path) ->
       let source = ask db (Query.SourceText (Query.FileId path)) in
       Diagnosed.run (fun () -> Parser_intf.parse_string ~filename:path source)
-      |> Diagnosed.raise |> fst
+      |> Diagnosed.raise
   | Query.SCCs () ->
       let files = ask db (Query.Manifest ()) in
       let graph = Hashtbl.create 16 in
@@ -132,7 +132,7 @@ and compute : type a. Db.t -> a Query.t -> a =
                     in
                     (w, result))
                   entries)
-            |> Diagnosed.raise |> fst
+            |> Diagnosed.raise
           in
           let final_results =
             List.map2
@@ -144,9 +144,9 @@ and compute : type a. Db.t -> a Query.t -> a =
                 in
                 let ok =
                   Diagnosed.adorn ~span:body_span (fun () ->
-                    let ok1 = I.constrain_ty ph ty in
-                    let ok2 = I.constrain_ty ty ph in
-                    ok1 && ok2)
+                      let ok1 = I.constrain_ty ph ty in
+                      let ok2 = I.constrain_ty ty ph in
+                      ok1 && ok2)
                 in
                 let final_ty =
                   if ok then ty else Simple_type.(TFunc (SError, SError))

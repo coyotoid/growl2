@@ -4,6 +4,7 @@ type term' =
   | Id
   | Cat of term * term
   | Lit of literal
+  | List of term list
   | Word of string
   | Quote of term
   | Bind of string Span.Spanned.t * term
