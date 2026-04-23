@@ -137,11 +137,19 @@ and compute : type a. Db.t -> a Query.t -> a =
           let final_results =
             List.map2
               (fun (_, ph, _) (w, ty) ->
-                let ok1 = I.constrain_ty ph ty in
-                let ok2 = I.constrain_ty ty ph in
+                let body_span =
+                  match ask db (Query.WordExpr w) with
+                  | Some (expr : Ast.term) -> expr.span
+                  | None -> Span.dummy
+                in
+                let ok =
+                  Diagnosed.adorn ~span:body_span (fun () ->
+                    let ok1 = I.constrain_ty ph ty in
+                    let ok2 = I.constrain_ty ty ph in
+                    ok1 && ok2)
+                in
                 let final_ty =
-                  if ok1 && ok2 then ty
-                  else Simple_type.(TFunc (SError, SError))
+                  if ok then ty else Simple_type.(TFunc (SError, SError))
                 in
                 (w, final_ty))
               entries results
@@ -153,5 +161,5 @@ and compute : type a. Db.t -> a Query.t -> a =
             (fun (w, result) ->
               if not (String.equal w name) then
                 Db.store db (Query.WordType w) result [])
-            results;
+            final_results;
           List.assoc ~eq:String.equal name final_results)

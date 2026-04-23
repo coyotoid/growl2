@@ -20,7 +20,7 @@ let with_reporting diagnosed =
           Fmt.epr "@[<2>%a:%a: %a: %a@]@."
             (Fmt.styled `Bold Fmt.string)
             span.filename Fmt.text_loc
-            ((span.lo.line, span.lo.col), (span.hi.line, span.hi.col))
+            ((span.lo.line, span.lo.col - 1), (span.hi.line, span.hi.col - 1))
             (Fmt.styled `Bold
                (Fmt.styled
                   (color_of_severity diag.Diagnostic.severity)
