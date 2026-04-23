@@ -18,7 +18,9 @@
 
 %token <int>    INT
 %token <bool>   BOOL
-%token <string> IDENT
+%token <string> STRING
+%token <string> COMMAND
+%token <string> WORD
 %token DEF
 %token ARROW
 %token SEMI
@@ -35,11 +37,11 @@ program:
   | ds = list(def) EOF { ds }
 
 def:
-  | DEF name = IDENT LBRACE body = terms RBRACE
+  | DEF name = WORD LBRACE body = terms RBRACE
     { spanned
         { name = spanned name $startpos(name) $endpos(name); body }
         $startpos $endpos }
-  | DEF name = IDENT LBRACE error RBRACE
+  | DEF name = WORD LBRACE error RBRACE
     { spanned
         { name = spanned name $startpos(name) $endpos(name)
         ; body = spanned Id $startpos $endpos }
@@ -52,7 +54,7 @@ def:
 
 terms:
   | { spanned Id $startpos $endpos }
-  | ARROW name = IDENT SEMI rest = terms
+  | ARROW name = WORD SEMI rest = terms
     { spanned
         (Bind (spanned name $startpos(name) $endpos(name), rest))
         $startpos $endpos }
@@ -61,15 +63,23 @@ terms:
   | t = term rest = terms
     { cat t rest }
 
+command:
+  | name = COMMAND body = terms SEMI
+    { Command (spanned name $startpos(name) $endpos(name), body) }
+
 term:
   | n = INT
     { spanned (Lit (`Int n)) $startpos $endpos }
   | b = BOOL
     { spanned (Lit (`Bool b)) $startpos $endpos }
-  | name = IDENT
+  | s = STRING
+    { spanned (Lit (`String s)) $startpos $endpos }
+  | name = WORD
     { spanned (Word name) $startpos $endpos }
   | LBRACK body = terms RBRACK
     { spanned (Quote body) $startpos $endpos }
   | LBRACK body = terms error
     { spanned (Quote body) $startpos $endpos }
+  | cmd = command
+    { spanned cmd $startpos $endpos }
 

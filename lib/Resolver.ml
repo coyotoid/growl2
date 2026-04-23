@@ -37,20 +37,18 @@ and compute : type a. Db.t -> a Query.t -> a =
   | Query.SourceText _ -> failwith "base input"
   | Query.ParsedProgram (Query.FileId path) ->
       let source = ask db (Query.SourceText (Query.FileId path)) in
-      Parser_intf.parse_string ~filename:path source
+      Diagnosed.run (fun () -> Parser_intf.parse_string ~filename:path source)
+      |> Diagnosed.raise |> fst
   | Query.SCCs () ->
       let files = ask db (Query.Manifest ()) in
       let graph = Hashtbl.create 16 in
       List.iter
         (fun file_id ->
-          match ask db (Query.ParsedProgram file_id) with
-          | d when Diagnosed.has `Error d -> ()
-          | d ->
-              let prog, _ = Diagnosed.run d in
-              List.iter
-                (fun (def : Ast.def Span.Spanned.t) ->
-                  Hashtbl.replace graph def.value.name.value def.value.body)
-                prog)
+          let prog = ask db (Query.ParsedProgram file_id) in
+          List.iter
+            (fun (def : Ast.def Span.Spanned.t) ->
+              Hashtbl.replace graph def.value.name.value def.value.body)
+            prog)
         files;
       let nodes = Hashtbl.fold (fun k _ acc -> k :: acc) graph [] in
       Containers_scc.scc
@@ -61,31 +59,22 @@ and compute : type a. Db.t -> a Query.t -> a =
           | None -> fun _ -> ()
           | Some term -> word_refs term)
         ~nodes ()
-  | Query.WordExpr name -> (
+  | Query.WordExpr name ->
       let files = ask db (Query.Manifest ()) in
-      let found =
-        List.find_map
-          (fun file_id ->
-            let res = ask db (Query.ParsedProgram file_id) in
-            if Diagnosed.has `Error res then None
-            else
-              let prog = Diagnosed.run res |> Pair.fst in
-              List.find_map
-                (fun (def : Ast.def Span.Spanned.t) ->
-                  if String.equal def.value.name.value name then
-                    Some (Diagnosed.return def.value.body)
-                  else None)
-                prog)
-          files
-      in
-      match found with
-      | Some d -> Diagnosed.map Option.some d
-      | None -> Diagnosed.return None)
+      List.find_map
+        (fun file_id ->
+          let prog = ask db (Query.ParsedProgram file_id) in
+          List.find_map
+            (fun (def : Ast.def Span.Spanned.t) ->
+              if String.equal def.value.name.value name then Some def.value.body
+              else None)
+            prog)
+        files
   | Query.WordType name -> (
       match Hashtbl.find_opt db.types_in_progress name with
       | Some (placeholder, is_rec) ->
           is_rec := true;
-          Diagnosed.return placeholder
+          placeholder
       | None ->
           let scc =
             match
@@ -111,42 +100,52 @@ and compute : type a. Db.t -> a Query.t -> a =
               scc
           in
           let results =
-            List.map
-              (fun (w, _, _) ->
-                let placeholders =
-                  List.fold_left
-                    (fun m (w2, ph, _) ->
-                      if String.equal w2 w then m else String_map.add w2 ph m)
-                    String_map.empty entries
-                in
-                let ctx =
-                  Type_inference.
-                    {
-                      env = String_map.empty;
-                      ask = (fun q -> ask db q);
-                      placeholders;
-                    }
-                in
-                let result =
-                  let open Diagnosed in
-                  let* expr = ask db (Query.WordExpr w) in
-                  match expr with
-                  | Some expr -> I.infer ctx 0 expr
-                  | None ->
-                      let+ () =
-                        throw `Error Text.[ Text "unbound word: "; Verbatim w ]
-                      in
-                      Simple_type.(TFunc (SError, SError))
-                in
-                (w, result))
-              entries
+            Diagnosed.run (fun () ->
+                List.map
+                  (fun (w, _, _) ->
+                    let placeholders =
+                      List.fold_left
+                        (fun m (w2, ph, _) ->
+                          if String.equal w2 w then m
+                          else String_map.add w2 ph m)
+                        String_map.empty entries
+                    in
+                    let ctx =
+                      Type_inference.
+                        {
+                          env = String_map.empty;
+                          ask = (fun q -> ask db q);
+                          placeholders;
+                        }
+                    in
+                    let result =
+                      let open Diagnosed in
+                      let expr = ask db (Query.WordExpr w) in
+                      match expr with
+                      | Some expr -> I.infer ctx 0 expr
+                      | None ->
+                          let () =
+                            throw `Error
+                              Text.[ Text "unbound word: "; Verbatim w ]
+                          in
+                          Simple_type.(TFunc (SError, SError))
+                    in
+                    (w, result))
+                  entries)
+            |> Diagnosed.raise |> fst
           in
-          List.iter2
-            (fun (_, ph, _) (_, result) ->
-              let ty = Diagnosed.run result |> Pair.fst in
-              ignore (I.constrain_ty ph ty);
-              ignore (I.constrain_ty ty ph))
-            entries results;
+          let final_results =
+            List.map2
+              (fun (_, ph, _) (w, ty) ->
+                let ok1 = I.constrain_ty ph ty in
+                let ok2 = I.constrain_ty ty ph in
+                let final_ty =
+                  if ok1 && ok2 then ty
+                  else Simple_type.(TFunc (SError, SError))
+                in
+                (w, final_ty))
+              entries results
+          in
           List.iter
             (fun (w, _, _) -> Hashtbl.remove db.types_in_progress w)
             entries;
@@ -155,4 +154,4 @@ and compute : type a. Db.t -> a Query.t -> a =
               if not (String.equal w name) then
                 Db.store db (Query.WordType w) result [])
             results;
-          List.assoc ~eq:String.equal name results)
+          List.assoc ~eq:String.equal name final_results)

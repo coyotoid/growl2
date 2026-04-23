@@ -1,22 +1,61 @@
-include
-  Preface.Make.Writer.Over_monad
-    (Preface.Identity.Monad)
-    (Preface.List.Monoid (struct
-      type t = Diagnostic.t
-    end))
+exception Fatal of Diagnostic.t list
 
-let throw ?span severity text = tell [ { severity; text; span } ]
+type _ Effect.t += Emit : Diagnostic.t -> unit Effect.t
 
-let has severity m =
-  exec m |> Preface.Identity.extract
-  |> List.exists (fun d ->
-      Diagnostic.equal_severity d.Diagnostic.severity severity)
+let throw ?span severity text =
+  Effect.perform (Emit { Diagnostic.severity; text; span })
 
-let adorn ~span m =
-  let fill (d : Diagnostic.t) =
-    match d.span with None -> { d with span } | Some _ -> d
+let fatal ?span severity text =
+  raise (Fatal [ { Diagnostic.severity; text; span } ])
+
+let run f =
+  let tape = ref [] in
+  let result =
+    Effect.Deep.match_with f ()
+      {
+        retc = (fun x -> Some x);
+        exnc =
+          (function
+          | Fatal diag ->
+              tape := List.rev_append diag !tape;
+              None
+          | exn -> raise exn);
+        effc =
+          (fun (type a) (eff : a Effect.t) ->
+            match eff with
+            | Emit diag ->
+                Some
+                  (fun (k : (a, _) Effect.Deep.continuation) ->
+                    tape := diag :: !tape;
+                    Effect.Deep.continue k ())
+            | _ -> None);
+      }
   in
-  censor (List.map fill) m
+  (result, List.rev !tape)
 
-let run : 'a t -> 'a * tape = fun m -> run m |> Preface.Identity.extract
-let exec : 'a t -> tape = fun m -> exec m |> Preface.Identity.extract
+let adorn ~span f =
+  let fill (d : Diagnostic.t) =
+    match d.span with None -> { d with span = Some span } | Some _ -> d
+  in
+  Effect.Deep.match_with f ()
+    {
+      retc = Fun.id;
+      exnc =
+        (function
+        | Fatal diag -> raise (Fatal (List.map fill diag))
+        | exn -> raise exn);
+      effc =
+        (fun (type a) (eff : a Effect.t) ->
+          match eff with
+          | Emit diag ->
+              Some
+                (fun (k : (a, _) Effect.Deep.continuation) ->
+                  Effect.Deep.continue k (Effect.perform (Emit (fill diag))))
+          | _ -> None);
+    }
+
+let raise (r, d) =
+  let errs = List.filter Diagnostic.is_error d in
+  if List.is_empty errs then
+    ((match r with Some r -> r | None -> assert false), d)
+  else raise (Fatal d)

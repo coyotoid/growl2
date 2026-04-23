@@ -11,11 +11,11 @@ module type S = sig
   val next_id : unit -> int
   val fresh_ty_var : level:int -> unit -> Simple_type.ty
   val fresh_stack_var : level:int -> unit -> Simple_type.stack
-  val infer : ctx -> int -> Ast.term -> Simple_type.ty Diagnosed.t
-  val constrain_ty : Simple_type.ty -> Simple_type.ty -> bool Diagnosed.t
+  val infer : ctx -> int -> Ast.term -> Simple_type.ty
+  val constrain_ty : Simple_type.ty -> Simple_type.ty -> bool
 end
 
-module Make () : S = struct
+module Make () = struct
   let id = ref 0
   let next_id () = Ref.get_then_incr id
 
@@ -30,34 +30,24 @@ module Make () : S = struct
     t |> Compact_type.compact |> Compact_type.simplify |> C.coalesce
     |> Type.simplify_ty
 
-  let rec constrain_ty lhs rhs : bool Diagnosed.t =
-    let open Diagnosed in
+  let rec constrain_ty lhs rhs : bool =
     let open Simple_type in
     match (lhs, rhs) with
+    | TError, _ | _, TError -> false
     | TVar a, _ ->
         if not (List.memq rhs a.upper) then (
           a.upper <- rhs :: a.upper;
-          List.fold_left
-            (fun acc lb ->
-              let* acc = acc in
-              let* res = constrain_ty lb rhs in
-              return (acc && res))
-            (return true) a.lower)
-        else return true
+          List.fold_left (fun acc lb -> acc && constrain_ty lb rhs) true a.lower)
+        else true
     | _, TVar b ->
         if not (List.memq lhs b.lower) then (
           b.lower <- lhs :: b.lower;
-          List.fold_left
-            (fun acc ub ->
-              let* acc = acc in
-              let* res = constrain_ty lhs ub in
-              return (acc && res))
-            (return true) b.upper)
-        else return true
+          List.fold_left (fun acc ub -> acc && constrain_ty lhs ub) true b.upper)
+        else true
     | TPrim p, TPrim q ->
         if not (Type_primitive.leq p q) then
-          let+ () =
-            throw `Error
+          let () =
+            Diagnosed.throw `Error
               Text.
                 [
                   Any (p, Type_primitive.pp);
@@ -66,25 +56,23 @@ module Make () : S = struct
                 ]
           in
           false
-        else return true
+        else true
     | TFunc (s1, s2), TFunc (s3, s4) ->
-        let* r1 = constrain_stack s3 s1 in
-        let* r2 = constrain_stack s2 s4 in
-        return (r1 && r2)
+        constrain_stack s3 s1 && constrain_stack s2 s4
     | TCon (c1, args1), TCon (c2, args2) when String.equal c1 c2 ->
         let rec go l1 l2 =
           match (l1, l2) with
-          | [], [] -> return true
+          | [], [] -> true
           | a :: t1, b :: t2 ->
-              let* r = constrain_ty a b in
-              let* rest = go t1 t2 in
-              return (r && rest)
-          | _ -> return false
+              let r = constrain_ty a b in
+              let rest = go t1 t2 in
+              r && rest
+          | _ -> false
         in
         go args1 args2
     | _ ->
-        let+ () =
-          throw `Error
+        let () =
+          Diagnosed.throw `Error
             Text.
               [
                 Text "type mismatch between ";
@@ -95,37 +83,26 @@ module Make () : S = struct
         in
         false
 
-  and constrain_stack lhs rhs : bool Diagnosed.t =
-    let open Diagnosed in
+  and constrain_stack lhs rhs : bool =
     let open Simple_type in
     match (lhs, rhs) with
+    | SError, _ | _, SError -> false
     | SVar a, _ ->
         if not (List.memq rhs a.upper) then (
           a.upper <- rhs :: a.upper;
           List.fold_left
-            (fun acc lb ->
-              let* acc = acc in
-              let* res = constrain_stack lb rhs in
-              return (acc && res))
-            (return true) a.lower)
-        else return true
+            (fun acc lb -> acc && constrain_stack lb rhs)
+            true a.lower)
+        else true
     | _, SVar b ->
         if not (List.memq lhs b.lower) then (
           b.lower <- lhs :: b.lower;
           List.fold_left
-            (fun acc ub ->
-              let* acc = acc in
-              let* res = constrain_stack lhs ub in
-              return (acc && res))
-            (return true) b.upper)
-        else return true
+            (fun acc ub -> acc && constrain_stack lhs ub)
+            true b.upper)
+        else true
     | SCons (t1, s1), SCons (t2, s2) ->
-        let* rt = constrain_ty t1 t2 in
-        let* rs = constrain_stack s1 s2 in
-        return (rt && rs)
-    | _ ->
-        let+ () = throw `Error Text.[ Text "stack mismatch" ] in
-        false
+        constrain_ty t1 t2 && constrain_stack s1 s2
 
   let freshen level =
     let open Simple_type in
@@ -160,57 +137,80 @@ module Make () : S = struct
     in
     go_ty
 
-  let rec infer ctx level (term : Ast.term) : Simple_type.ty Diagnosed.t =
-    let open Diagnosed in
+  let type_of_word ~span ctx level name =
+    let open Simple_type in
+    match String_map.find_opt name ctx.env with
+    | Some ty ->
+        let rho = fresh_stack_var ~level () in
+        TFunc (rho, SCons (ty, rho))
+    | None -> (
+        match String_map.find_opt name ctx.placeholders with
+        | Some ph -> ph
+        | None ->
+            let t =
+              Diagnosed.adorn ~span (fun () -> ctx.ask (Query.WordType name))
+            in
+            freshen level t)
+
+  let rec infer ctx level (term : Ast.term) : Simple_type.ty =
     let open Simple_type in
     let open Ast in
     match term.value with
     | Id ->
         let rho = fresh_stack_var ~level () in
-        return (TFunc (rho, rho))
+        TFunc (rho, rho)
     | Lit l ->
         let rho = fresh_stack_var ~level () in
-        return (TFunc (rho, SCons (TPrim (primitive_of_literal l), rho)))
-    | Word w -> (
-        match String_map.find_opt w ctx.env with
-        | Some ty ->
-            let rho = fresh_stack_var ~level () in
-            return (TFunc (rho, SCons (ty, rho)))
-        | None -> (
-            match String_map.find_opt w ctx.placeholders with
-            | Some ph -> return ph
-            | None ->
-                let* t =
-                  adorn ~span:(Some term.span) (ctx.ask (Query.WordType w))
-                in
-                return (freshen level t)))
+        TFunc (rho, SCons (TPrim (primitive_of_literal l), rho))
+    | Word name ->
+        Diagnosed.adorn ~span:term.span (fun () ->
+            type_of_word ~span:term.span ctx level name)
     | Cat (f, g) -> (
-        let* tf = infer ctx level f in
-        let* tg = infer ctx level g in
+        let tf = Diagnosed.adorn ~span:f.span (fun () -> infer ctx level f) in
+        let tg = Diagnosed.adorn ~span:g.span (fun () -> infer ctx level g) in
         match (tf, tg) with
         | TFunc (s_in, s_mid), TFunc (s_mid', s_out) ->
-            let* res =
-              adorn ~span:(Some term.span) (constrain_stack s_mid s_mid')
-            in
-            return @@ if res then TFunc (s_in, s_out) else TFunc (SError, SError)
+            if
+              Diagnosed.adorn ~span:term.span (fun () ->
+                  constrain_stack s_mid s_mid')
+            then TFunc (s_in, s_out)
+            else TFunc (SError, SError)
         | _ -> assert false)
     | Quote f ->
-        let* tf = infer ctx level f in
+        let tf = Diagnosed.adorn ~span:f.span (fun () -> infer ctx level f) in
         let rho = fresh_stack_var ~level () in
-        return (TFunc (rho, SCons (tf, rho)))
+        TFunc (rho, SCons (tf, rho))
     | Bind (name, body) -> (
         let t = fresh_ty_var ~level () in
         let rho = fresh_stack_var ~level () in
-        let* body_ty =
+        let body_ty =
           infer
             { ctx with env = String_map.add name.value t ctx.env }
             level body
         in
         match body_ty with
         | TFunc (body_in, body_out) ->
-            let+ _ =
-              adorn ~span:(Some term.span) (constrain_stack rho body_in)
+            let ok =
+              Diagnosed.adorn ~span:term.span (fun () ->
+                  constrain_stack rho body_in)
             in
-            TFunc (SCons (t, rho), body_out)
+            if ok then TFunc (SCons (t, rho), body_out)
+            else TFunc (SError, SError)
+        | _ -> assert false)
+    | Command (name, body) -> (
+        let body_ty =
+          Diagnosed.adorn ~span:body.span (fun () -> infer ctx level body)
+        in
+        let word_ty =
+          Diagnosed.adorn ~span:name.span (fun () ->
+              type_of_word ~span:name.span ctx level name.value)
+        in
+        match (body_ty, word_ty) with
+        | TFunc (s_in, s_mid), TFunc (s_mid', s_out) ->
+            let result =
+              Diagnosed.adorn ~span:(Span.merge name.span body.span) (fun () ->
+                  constrain_stack s_mid s_mid')
+            in
+            if result then TFunc (s_in, s_out) else TFunc (SError, SError)
         | _ -> assert false)
 end

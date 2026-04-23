@@ -6,12 +6,14 @@ module String_map = Map.Make (String)
 type value =
   | VInt of int
   | VBool of bool
+  | VString of string
   | VQuote of Ast.term * value String_map.t
 
 let pp_value : value Fmt.t =
  fun ppf -> function
-  | VInt n -> Fmt.int ppf n
-  | VBool n -> Fmt.bool ppf n
+  | VInt i -> Fmt.int ppf i
+  | VBool b -> Fmt.bool ppf b
+  | VString s -> Fmt.quote (Fmt.of_to_string String.escaped) ppf s
   | VQuote _ -> Fmt.string ppf "<quote>"
 
 (* helpers *)
@@ -46,8 +48,9 @@ let rec exec_term db lenv stack (term : Ast.term) =
   | Cat (f, g) ->
       let stack' = exec_term db lenv stack f in
       exec_term db lenv stack' g
-  | Lit (`Int n) -> VInt n :: stack
-  | Lit (`Bool n) -> VBool n :: stack
+  | Lit (`Int i) -> VInt i :: stack
+  | Lit (`Bool b) -> VBool b :: stack
+  | Lit (`String s) -> VString s :: stack
   | Word w -> exec_word db lenv stack w
   | Quote f -> VQuote (f, lenv) :: stack
   | Bind (name, body) -> (
@@ -56,6 +59,9 @@ let rec exec_term db lenv stack (term : Ast.term) =
       | v :: rest ->
           let lenv' = String_map.add name.value v lenv in
           exec_term db lenv' rest body)
+  | Command (name, body) ->
+      let stack' = exec_term db lenv stack body in
+      exec_word db lenv stack' name.value
 
 and exec_word db lenv stack = function
   | "dup" -> (
@@ -92,23 +98,13 @@ and exec_word db lenv stack = function
       match String_map.find_opt w lenv with
       | Some value -> value :: stack
       | None -> (
-          let expr =
-            Reporting.with_reporting (Resolver.ask db (Query.WordExpr w))
-          in
-          if Diagnosed.has `Error expr then failwith "query engine error"
-          else
-            let expr, diagnostics = Diagnosed.run expr in
-            match expr with
-            | Some body -> exec_term db String_map.empty stack body
-            | None -> failwith "unbound word"))
+          let expr = Resolver.ask db (Query.WordExpr w) in
+          match expr with
+          | Some body -> exec_term db String_map.empty stack body
+          | None -> failwith "unbound word"))
 
 let exec db =
-  let main_expr =
-    Reporting.with_reporting (Resolver.ask db (Query.WordExpr "main"))
-  in
-  if Diagnosed.has `Error main_expr then failwith "query engine error"
-  else
-    let main_expr, _ = Diagnosed.run main_expr in
-    match main_expr with
-    | Some main -> exec_term db String_map.empty [] main
-    | _ -> failwith "no main function to execute"
+  let main_expr = Resolver.ask db (Query.WordExpr "main") in
+  match main_expr with
+  | Some main -> exec_term db String_map.empty [] main
+  | _ -> failwith "no main function to execute"

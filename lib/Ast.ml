@@ -1,4 +1,4 @@
-type literal = [ `Int of int | `Bool of bool ]
+type literal = [ `Int of int | `Bool of bool | `String of string ]
 
 type term' =
   | Id
@@ -7,6 +7,7 @@ type term' =
   | Word of string
   | Quote of term
   | Bind of string Span.Spanned.t * term
+  | Command of string Span.Spanned.t * term
 
 and term = term' Span.Spanned.t
 
@@ -17,6 +18,7 @@ let primitive_of_literal : literal -> Type_primitive.t = function
   | `Int n when n >= 0 -> `Nat
   | `Int _ -> `Int
   | `Bool _ -> `Bool
+  | `String _ -> `String
 
 let seq terms =
   let spanned value = Span.(Spanned.{ value; span = dummy }) in

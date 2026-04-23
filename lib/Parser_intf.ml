@@ -23,20 +23,20 @@ let parse ~filename lexbuf =
         match I.offer checkpoint t with
         | I.HandlingError _ as err_cp ->
             let span = current_span filename lexbuf in
-            throw ~span `Error Text.[ Text "syntax error" ] >>= fun () ->
+            throw ~span `Error Text.[ Text "syntax error" ];
             retry t (I.resume err_cp)
         | next_cp -> step next_cp)
     | I.Shifting _ | I.AboutToReduce _ -> step (I.resume checkpoint)
-    | I.Accepted tree -> return tree
-    | I.Rejected -> return []
+    | I.Accepted tree -> tree
+    | I.Rejected -> []
     | I.HandlingError _ ->
         let span = current_span filename lexbuf in
-        let* () = throw ~span `Error Text.[ Text "syntax error" ] in
+        let () = throw ~span `Error Text.[ Text "syntax error" ] in
         retry !last_token (I.resume checkpoint)
   and retry pending checkpoint =
     match checkpoint with
-    | I.Rejected -> return []
-    | I.Accepted tree -> return tree
+    | I.Rejected -> []
+    | I.Accepted tree -> tree
     | I.Shifting _ | I.AboutToReduce _ -> retry pending (I.resume checkpoint)
     | I.HandlingError _ -> retry pending (I.resume checkpoint)
     | I.InputNeeded _ -> (
@@ -44,18 +44,18 @@ let parse ~filename lexbuf =
         | I.HandlingError _ as hcp -> (
             let tok, _, _ = pending in
             match tok with
-            | Parser.EOF -> return []
+            | Parser.EOF -> []
             | _ ->
                 let rec resolve = function
                   | I.Shifting _ as cp -> step (I.resume cp)
-                  | I.Rejected -> return []
+                  | I.Rejected -> []
                   | I.HandlingError _ as cp -> resolve (I.resume cp)
                   | cp -> step cp
                 in
                 resolve (I.resume hcp))
         | next_cp -> (
             let tok, _, _ = pending in
-            match tok with Parser.EOF -> return [] | _ -> step next_cp))
+            match tok with Parser.EOF -> [] | _ -> step next_cp))
   in
   step (Parser.Incremental.program lexbuf.lex_curr_p)
 

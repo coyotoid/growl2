@@ -5,8 +5,7 @@ module String_map = Map.Make (String)
 
 let parse_program str =
   let lexbuf = Lexing.from_string str in
-  let result = Parser_intf.parse ~filename:"<test>" lexbuf in
-  Diagnosed.run result |> fst
+  Parser_intf.parse ~filename:"<test>" lexbuf
 
 let load_string db fname contents =
   let manifest = Resolver.ask db (Query.Manifest ()) in
@@ -17,24 +16,12 @@ let load_string db fname contents =
   fid
 
 let types_of db fid =
-  let open Diagnosed.Syntax in
-  let program_m = Resolver.ask db (Query.ParsedProgram fid) in
-  if Diagnosed.has `Error (Reporting.with_reporting program_m) then
-    failwith "error while parsing program"
-  else
-    let res_m =
-      let* program = program_m in
-      List.fold_right
-        (fun (def : Ast.def Span.Spanned.t) acc ->
-          let* acc = acc in
-          let* ty = Resolver.ask db (Query.WordType def.value.name.value) in
-          Diagnosed.return (String_map.add def.value.name.value ty acc))
-        program
-        (Diagnosed.return String_map.empty)
-    in
-    if Diagnosed.has `Error (Reporting.with_reporting res_m) then
-      failwith "error during type checking"
-    else Diagnosed.run res_m |> fst
+  let program = Resolver.ask db (Query.ParsedProgram fid) in
+  List.fold_right
+    (fun (def : Ast.def Span.Spanned.t) acc ->
+      let ty = Resolver.ask db (Query.WordType def.value.name.value) in
+      String_map.add def.value.name.value ty acc)
+    program String_map.empty
 
 let coalesce_ty t =
   let module C = Type_coalescing.Make () in

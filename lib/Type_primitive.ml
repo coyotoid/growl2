@@ -1,10 +1,11 @@
-type t = [ `Int | `Nat | `Bool ] [@@deriving eq, ord]
+type t = [ `Int | `Nat | `Bool | `String ] [@@deriving eq, ord]
 
 let pp : t Fmt.t =
  fun ppf -> function
   | `Int -> Fmt.string ppf "int"
   | `Nat -> Fmt.string ppf "nat"
   | `Bool -> Fmt.string ppf "bool"
+  | `String -> Fmt.string ppf "string"
 
 let show = Fmt.to_to_string pp
 

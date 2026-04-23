@@ -5,10 +5,10 @@ type file_id = FileId of string [@@deriving eq]
 type _ t =
   | Manifest : unit -> file_id list t
   | SourceText : file_id -> string t
-  | ParsedProgram : file_id -> Ast.program Diagnosed.t t
+  | ParsedProgram : file_id -> Ast.program t
   | SCCs : unit -> string list list t
-  | WordExpr : string -> Ast.term option Diagnosed.t t
-  | WordType : string -> Simple_type.ty Diagnosed.t t
+  | WordExpr : string -> Ast.term option t
+  | WordType : string -> Simple_type.ty t
 
 type ('a, 'b) eq = Refl : ('a, 'a) eq
 

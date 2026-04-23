@@ -20,6 +20,7 @@ let rec pp_ty : ty Fmt.t =
   | TPrim `Nat -> Fmt.string ppf "nat"
   | TPrim `Int -> Fmt.string ppf "int"
   | TPrim `Bool -> Fmt.string ppf "bool"
+  | TPrim `String -> Fmt.string ppf "string"
   | TCon (name, []) -> Fmt.string ppf name
   | TCon (name, [ arg ]) -> Fmt.pair ~sep:Fmt.sp pp_ty Fmt.string ppf (arg, name)
   | TCon (name, args) ->

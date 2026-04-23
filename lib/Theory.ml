@@ -53,9 +53,7 @@ let t_dip =
   rho &> a &> (rho => sigma) => (sigma &> a)
 
 let load_prelude db =
-  let store name ty =
-    Db.store db (Query.WordType name) (Diagnosed.return ty) []
-  in
+  let store name ty = Db.store db (Query.WordType name) ty [] in
   store "dup" t_dup;
   store "drop" t_drop;
   store "swap" t_swap;
