@@ -2,8 +2,6 @@
 
 An experimental, statically typed, stack-based programming language.
 
-Growl is
-
 ## Building
 
 Growl is written in OCaml.  As such you'll need to have a working OCaml 
