@@ -27,8 +27,10 @@ let exec_cmd =
     let db, fid = setup_db file in
     let program = Resolver.ask db (Query.ParsedProgram fid) in
     List.iter
-      (fun (def : Ast.def Span.Spanned.t) ->
-        ignore (Resolver.ask db (Query.WordType def.value.name.value)))
+      (fun (item : Ast.toplevel Span.Spanned.t) ->
+        match item.value with
+        | Ast.Def def -> ignore (Resolver.ask db (Query.WordType def.name.value))
+        | Ast.Use _ -> ())
       program;
     let main_ty = Resolver.ask db (Query.WordType "main") in
     match Simple_type.is_error main_ty with
@@ -50,9 +52,12 @@ let check_cmd =
     let program = Resolver.ask db (Query.ParsedProgram fid) in
     let types =
       List.fold_right
-        (fun (def : Ast.def Span.Spanned.t) acc ->
-          let ty = Resolver.ask db (Query.WordType def.value.name.value) in
-          (def.value.name.value, ty) :: acc)
+        (fun (item : Ast.toplevel Span.Spanned.t) acc ->
+          match item.value with
+          | Ast.Def def ->
+              let ty = Resolver.ask db (Query.WordType def.name.value) in
+              (def.name.value, ty) :: acc
+          | Ast.Use _ -> acc)
         program []
     in
     List.iter

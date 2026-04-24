@@ -1,4 +1,5 @@
 open Containers
+module String_map = Map.Make (String)
 
 type file_id = FileId of string [@@deriving eq]
 
@@ -6,6 +7,9 @@ type _ t =
   | Manifest : unit -> file_id list t
   | SourceText : file_id -> string t
   | ParsedProgram : file_id -> Ast.program t
+  | ImportsOf : file_id -> file_id list t
+  | AllFiles : file_id -> file_id list t
+  | DefsOf : file_id -> Ast.def Span.Spanned.t String_map.t t
   | SCCs : unit -> string list list t
   | WordDef : string -> Ast.def Span.Spanned.t option t
   | WordType : string -> Simple_type.ty t
@@ -18,6 +22,9 @@ let equal : type a b. a t -> b t -> (a, b) eq option =
   | Manifest _, Manifest _ -> Some Refl
   | SourceText i, SourceText j when equal_file_id i j -> Some Refl
   | ParsedProgram i, ParsedProgram j when equal_file_id i j -> Some Refl
+  | ImportsOf i, ImportsOf j when equal_file_id i j -> Some Refl
+  | AllFiles i, AllFiles j when equal_file_id i j -> Some Refl
+  | DefsOf i, DefsOf j when equal_file_id i j -> Some Refl
   | SCCs (), SCCs () -> Some Refl
   | WordDef i, WordDef j when String.equal i j -> Some Refl
   | WordType i, WordType j when String.equal i j -> Some Refl
@@ -27,6 +34,9 @@ let hash : type a. a t -> int = function
   | Manifest () -> Hashtbl.hash `Manifest
   | SourceText i -> Hashtbl.hash (`SourceText i)
   | ParsedProgram i -> Hashtbl.hash (`ParsedProgram i)
+  | ImportsOf i -> Hashtbl.hash (`ImportsOf, i)
+  | AllFiles i -> Hashtbl.hash (`AllFiles, i)
+  | DefsOf i -> Hashtbl.hash (`DefsOf, i)
   | SCCs () -> Hashtbl.hash `SCCs
   | WordDef name -> Hashtbl.hash (`WordDef name)
   | WordType name -> Hashtbl.hash (`WordType name)

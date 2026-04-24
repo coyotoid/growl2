@@ -1,0 +1,6 @@
+use "prelude.grr"
+
+def even { dup 0 = [drop true] [1 - odd] ifte }
+def odd { even not }
+
+def main { 10 even 10 odd }

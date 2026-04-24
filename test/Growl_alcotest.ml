@@ -18,9 +18,12 @@ let load_string db fname contents =
 let types_of db fid =
   let program = Resolver.ask db (Query.ParsedProgram fid) in
   List.fold_right
-    (fun (def : Ast.def Span.Spanned.t) acc ->
-      let ty = Resolver.ask db (Query.WordType def.value.name.value) in
-      String_map.add def.value.name.value ty acc)
+    (fun (item : Ast.item Span.Spanned.t) acc ->
+      match item.value with
+      | Ast.Def def ->
+          let ty = Resolver.ask db (Query.WordType def.name.value) in
+          String_map.add def.name.value ty acc
+      | Ast.Use _ -> acc)
     program String_map.empty
 
 let coalesce_ty t =

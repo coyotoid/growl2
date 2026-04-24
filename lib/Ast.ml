@@ -15,7 +15,12 @@ type term' =
 and term = term' S.t
 
 type def = { name : string S.t; annot : Type_ast.annot S.t option; body : term }
-type program = def S.t list
+
+type toplevel =
+  | Def of def
+  | Use of string
+
+type program = toplevel S.t list
 
 let primitive_of_literal : literal -> Type_primitive.t = function
   | `Int n when n >= 0 -> `Nat

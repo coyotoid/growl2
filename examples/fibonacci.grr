@@ -1,0 +1,9 @@
+use "prelude.grr"
+
+def fib {
+  ifte: dup 2 <
+    []
+    [dup 1 - fib swap 2 - fib +];
+}
+
+def main { 10 fib }

@@ -44,16 +44,59 @@ and compute : type a. Db.t -> a Query.t -> a =
       let source = ask db (Query.SourceText (Query.FileId path)) in
       Diagnosed.run (fun () -> Parser_intf.parse_string ~filename:path source)
       |> Diagnosed.raise
+  | Query.ImportsOf (Query.FileId path) ->
+      let program = ask db (Query.ParsedProgram (Query.FileId path)) in
+      let dir = Filename.dirname path in
+      List.filter_map
+        (fun (item : Ast.toplevel Span.Spanned.t) ->
+          match item.value with
+          | Ast.Use rel ->
+              let resolved = Filename.concat dir rel in
+              let fid = Query.FileId resolved in
+              (match Db.find db (Query.SourceText fid) with
+              | None ->
+                  let source =
+                    In_channel.with_open_text resolved In_channel.input_all
+                  in
+                  Db.store db (Query.SourceText fid) source []
+              | Some _ -> ());
+              Some fid
+          | Ast.Def _ -> None)
+        program
+  | Query.AllFiles (Query.FileId _ as entry) ->
+      let visited = Hashtbl.create 8 in
+      let order = ref [] in
+      let rec dfs fid =
+        if not (Hashtbl.mem visited fid) then begin
+          Hashtbl.add visited fid ();
+          List.iter dfs (ask db (Query.ImportsOf fid));
+          order := fid :: !order
+        end
+      in
+      dfs entry;
+      List.rev !order
+  | Query.DefsOf (Query.FileId path) ->
+      let program = ask db (Query.ParsedProgram (Query.FileId path)) in
+      String_map.of_list
+        (List.filter_map
+           (fun (item : Ast.toplevel Span.Spanned.t) ->
+             match item.value with
+             | Ast.Def def ->
+                 let node = Span.Spanned.{ value = def; span = item.span } in
+                 Some (def.name.value, node)
+             | Ast.Use _ -> None)
+           program)
   | Query.SCCs () ->
-      let files = ask db (Query.Manifest ()) in
+      let entry = List.hd (ask db (Query.Manifest ())) in
+      let files = ask db (Query.AllFiles entry) in
       let graph = Hashtbl.create 16 in
       List.iter
         (fun file_id ->
-          let prog = ask db (Query.ParsedProgram file_id) in
-          List.iter
-            (fun (def : Ast.def Span.Spanned.t) ->
-              Hashtbl.replace graph def.value.name.value def.value.body)
-            prog)
+          let defs = ask db (Query.DefsOf file_id) in
+          String_map.iter
+            (fun name (def : Ast.def Span.Spanned.t) ->
+              Hashtbl.replace graph name def.value.body)
+            defs)
         files;
       let nodes = Hashtbl.fold (fun k _ acc -> k :: acc) graph [] in
       Containers_scc.scc
@@ -65,14 +108,12 @@ and compute : type a. Db.t -> a Query.t -> a =
           | Some term -> word_refs term)
         ~nodes ()
   | Query.WordDef name ->
-      let files = ask db (Query.Manifest ()) in
+      let entry = List.hd (ask db (Query.Manifest ())) in
+      let files = ask db (Query.AllFiles entry) in
       List.find_map
         (fun file_id ->
-          let prog = ask db (Query.ParsedProgram file_id) in
-          List.find_map
-            (fun (def : Ast.def Span.Spanned.t) ->
-              if String.equal def.value.name.value name then Some def else None)
-            prog)
+          let defs = ask db (Query.DefsOf file_id) in
+          String_map.find_opt name defs)
         files
   | Query.WordType name -> (
       match Hashtbl.find_opt db.types_in_progress name with

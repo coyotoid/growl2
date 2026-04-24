@@ -1,25 +1,23 @@
-def ifte { choose call }
+use "prelude.grr"
 
 def list/head { list/uncons drop }
 def list/tail { list/uncons swap drop }
 
-def over { -> b; -> a; a b a }
-def 2dup { -> b; -> a; a b a b }
-
-def 2dip { swap [dip] dip }
-
-def keep { over [call] dip }
-def 2keep { [2dup] dip 2dip }
-
 def list/each
-  [..r, a list, [..r, a -> ..r] -> ..r] 
-{
-  ifte: over list/empty?
-    [ drop drop ]
-    [ [ [list/head] dip call ] 2keep
-      [ list/tail ] dip list/each ];
-}
+  [..r, a list, [..r, a -> ..r] -> ..r]
+  {
+    ifte: over list/empty?
+      [ drop drop ]
+      [ [ [ list/head ] dip call ] 2keep
+        [ list/tail ] dip list/each ];
+  }
 
-def main {
-  list/each: 0 {1 2 3 4} [+]; 10 =
-}
+def main
+  {
+    list/each: {1 2 3 4}
+      [pp];
+    
+    (* each can act like reduce, too! *)
+    list/each: 0 {1 2 3 4}
+      [+]; pp
+  }

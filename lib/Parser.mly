@@ -23,6 +23,7 @@
 %token <string> WORD
 %token <string> STACK_VAR
 %token DEF
+%token USE
 %token ARROW
 %token COMMA
 %token SEMI
@@ -36,7 +37,12 @@
 %%
 
 program:
-  | ds = list(def) EOF { ds }
+  | items = list(item) EOF { items }
+
+item:
+  | d = def { S.{ value = Ast.Def d.S.value; span = d.S.span } }
+  | USE path = STRING
+    { spanned (Ast.Use path) $startpos $endpos }
 
 def:
   | DEF name = WORD LBRACE body = terms RBRACE

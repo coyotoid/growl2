@@ -1,6 +1,4 @@
-def ifte { choose call }
-
-def println { print "\n" print }
+use "prelude.grr"
 
 def fact {
   ifte: dup 2 <
@@ -8,6 +6,4 @@ def fact {
     [dup 1 - fact *];
 }
 
-def main {
-  10 fact show println
-}
+def main { 10 fact }

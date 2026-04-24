@@ -1,0 +1,34 @@
+(* I/O functions *)
+def println { print "\n" print }
+def pp { show println }
+
+(* Stack shufflers *)
+def over { -> b; -> a; a b a }
+def 2dup { -> b; -> a; a b a b }
+def 3dup { -> c; -> b; -> a; a b c a b c }
+def 4dup { -> d; -> c; -> b; -> a; a b c d a b c d }
+
+(* * Combinators *)
+def ifte { choose call }
+
+(* ** Dataflow *)
+def 2dip { swap [dip] dip }
+def 3dip { swap [2dip] dip }
+def 4dip { swap [3dip] dip }
+
+def keep { over [call] dip }
+def 2keep { [2dup] dip 2dip }
+def 3keep { [3dup] dip 3dip }
+def 4keep { [4dup] dip 4dip }
+
+def bi { [keep] dip call }
+def 2bi { [2keep] dip call }
+
+def tri { [[keep] dip keep] dip call }
+def 2tri { [[2keep] dip 2keep] dip call }
+
+def bi* { [dip] dip call }
+def 2bi* { [2dip] dip call }
+
+def tri* { [[2dip] dip dip] dip call }
+def 2tri* { [4dip] 2dip 2bi* }
